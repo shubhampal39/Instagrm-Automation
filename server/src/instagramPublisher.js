@@ -71,15 +71,20 @@ async function getTargetInstagramAccountId() {
 }
 
 export async function publishToInstagram(post) {
-  const canPublishLive = config.publishMode === "live" && hasInstagramCredentials();
-
-  if (!canPublishLive) {
+  const publishMode = String(config.publishMode || "").toLowerCase();
+  if (publishMode === "mock") {
     return {
       success: true,
       mode: "mock",
       remotePostId: `mock_${post.id}`,
       message: "Post published in mock mode"
     };
+  }
+
+  if (!hasInstagramCredentials()) {
+    throw new Error(
+      "Live mode requires INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_ACCOUNT_ID environment variables."
+    );
   }
 
   const imageUrl = localMediaToPublicUrl(post.mediaPath);
