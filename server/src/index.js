@@ -65,7 +65,8 @@ app.post("/api/caption/optimize", async (req, res) => {
 
 app.post("/api/posts", upload.single("media"), async (req, res) => {
   try {
-    const { caption = "", scheduledAt, optimizeWithAi = "false" } = req.body;
+    const { caption = "", scheduledAt, optimizeWithAi = "false", postType = "FEED" } = req.body;
+    const normalizedPostType = String(postType).toUpperCase() === "STORY" ? "STORY" : "FEED";
 
     if (!req.file) {
       return res.status(400).json({ error: "media file is required" });
@@ -76,10 +77,11 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
     }
 
     const optimizedCaption =
-      optimizeWithAi === "true" ? await optimizeCaption(caption) : "";
+      optimizeWithAi === "true" && normalizedPostType !== "STORY" ? await optimizeCaption(caption) : "";
 
     const post = {
       id: uuidv4(),
+      postType: normalizedPostType,
       caption,
       optimizedCaption,
       mediaPath: `${config.uploadDir}/${req.file.filename}`,
@@ -124,6 +126,7 @@ app.patch("/api/posts/:id", async (req, res) => {
 
   const next = {
     ...post,
+    postType: req.body.postType ? String(req.body.postType).toUpperCase() : post.postType,
     caption: req.body.caption ?? post.caption,
     optimizedCaption: req.body.optimizedCaption ?? post.optimizedCaption,
     scheduledAt: req.body.scheduledAt ? new Date(req.body.scheduledAt).toISOString() : post.scheduledAt,
@@ -208,6 +211,7 @@ app.post("/api/posts/:id/duplicate", async (req, res) => {
 
   const duplicatedPost = {
     id: uuidv4(),
+    postType: post.postType || "FEED",
     caption: post.caption,
     optimizedCaption: post.optimizedCaption,
     mediaPath: duplicateRelPath,

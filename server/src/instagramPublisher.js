@@ -129,6 +129,18 @@ export async function publishToInstagram(post) {
   }
 
   const targetInstagramAccountId = await getTargetInstagramAccountId();
+  const postType = String(post.postType || "FEED").toUpperCase();
+  const isStory = postType === "STORY";
+  const mediaParams = {
+    image_url: imageUrl,
+    access_token: config.instagramAccessToken
+  };
+
+  if (isStory) {
+    mediaParams.media_type = "STORIES";
+  } else {
+    mediaParams.caption = post.optimizedCaption || post.caption;
+  }
 
   let container;
   try {
@@ -136,11 +148,7 @@ export async function publishToInstagram(post) {
       `https://graph.facebook.com/v20.0/${targetInstagramAccountId}/media`,
       null,
       {
-        params: {
-          image_url: imageUrl,
-          caption: post.optimizedCaption || post.caption,
-          access_token: config.instagramAccessToken
-        },
+        params: mediaParams,
         timeout: 20000
       }
     );

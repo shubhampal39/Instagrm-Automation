@@ -185,6 +185,7 @@ label {
 }
 
 input,
+select,
 textarea,
 button {
   border-radius: 10px;
@@ -319,6 +320,12 @@ button:disabled {
   gap: 0.5rem;
 }
 
+.postBadges {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+
 .captionLine {
   margin: 0;
   line-height: 1.35;
@@ -336,6 +343,11 @@ button:disabled {
   padding: 0.2rem 0.55rem;
   font-size: 0.76rem;
   border: 1px solid #546a8e;
+}
+
+.badge.type {
+  color: #7ad5ff;
+  border-color: rgba(122, 213, 255, 0.5);
 }
 
 .badge.good {

@@ -3,6 +3,7 @@
 A simple AI-assisted Instagram automation dashboard:
 
 - Upload photo + write caption
+- Choose post type: Feed or Story
 - Optional AI caption optimization
 - Schedule date/time
 - Automatic publish at scheduled time (background scheduler)

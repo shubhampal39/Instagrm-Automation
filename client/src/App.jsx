@@ -38,6 +38,7 @@ function computeStats(posts) {
 export default function App() {
   const [media, setMedia] = useState(null);
   const [mediaPreview, setMediaPreview] = useState("");
+  const [postType, setPostType] = useState("FEED");
   const [caption, setCaption] = useState("");
   const [scheduledAt, setScheduledAt] = useState(toLocalInputValue(new Date(Date.now() + 30 * 60 * 1000)));
   const [optimizeWithAi, setOptimizeWithAi] = useState(true);
@@ -140,6 +141,7 @@ export default function App() {
   }
 
   async function onOptimizeDraft() {
+    if (postType === "STORY") return;
     if (!caption.trim()) return;
     setOptimizing(true);
     setError("");
@@ -179,9 +181,10 @@ export default function App() {
     try {
       const formData = new FormData();
       formData.append("media", media);
+      formData.append("postType", postType);
       formData.append("caption", caption);
       formData.append("scheduledAt", new Date(scheduledAt).toISOString());
-      formData.append("optimizeWithAi", String(optimizeWithAi));
+      formData.append("optimizeWithAi", String(optimizeWithAi && postType !== "STORY"));
 
       const response = await fetch(`${API_BASE}/api/posts`, {
         method: "POST",
@@ -194,6 +197,7 @@ export default function App() {
       }
 
       setMedia(null);
+      setPostType("FEED");
       setCaption("");
       setDraftOptimizedCaption("");
       setScheduledAt(toLocalInputValue(new Date(Date.now() + 30 * 60 * 1000)));
@@ -331,11 +335,19 @@ export default function App() {
             </div>
 
             <label>
+              Post Type
+              <select value={postType} onChange={(event) => setPostType(event.target.value)}>
+                <option value="FEED">Feed Post</option>
+                <option value="STORY">Story</option>
+              </select>
+            </label>
+
+            <label>
               Caption
               <textarea
                 rows={5}
                 value={caption}
-                placeholder="Tell your story..."
+                placeholder={postType === "STORY" ? "Story text (optional)..." : "Tell your story..."}
                 onChange={(event) => setCaption(event.target.value.slice(0, CAPTION_LIMIT))}
               />
             </label>
@@ -371,12 +383,19 @@ export default function App() {
                 type="checkbox"
                 checked={optimizeWithAi}
                 onChange={(event) => setOptimizeWithAi(event.target.checked)}
+                disabled={postType === "STORY"}
               />
-              <span>Optimize caption on schedule</span>
+              <span>
+                {postType === "STORY" ? "Caption optimization is disabled for story posts" : "Optimize caption on schedule"}
+              </span>
             </label>
 
             <div className="actionRow">
-              <button type="button" onClick={onOptimizeDraft} disabled={optimizing || !caption.trim()}>
+              <button
+                type="button"
+                onClick={onOptimizeDraft}
+                disabled={optimizing || !caption.trim() || postType === "STORY"}
+              >
                 {optimizing ? "Optimizing..." : "Preview AI Optimize"}
               </button>
               <button type="submit" disabled={submitting}>
@@ -430,10 +449,13 @@ export default function App() {
               <article key={post.id} className="postCard">
                 <img src={`/${post.mediaPath}`} alt={post.mediaOriginalName} />
                 <div className="postContent">
-                  <div className="postTop">
-                    <p className="captionLine">{post.optimizedCaption || post.caption || "(No caption)"}</p>
+                <div className="postTop">
+                  <p className="captionLine">{post.optimizedCaption || post.caption || "(No caption)"}</p>
+                  <div className="postBadges">
+                    <span className="badge type">{post.postType || "FEED"}</span>
                     <span className={`badge ${statusTone(post.status)}`}>{post.status}</span>
                   </div>
+                </div>
 
                   <p className="meta">Scheduled: {formatDate(post.scheduledAt)}</p>
                   <p className="meta">Published: {formatDate(post.publishedAt)}</p>
