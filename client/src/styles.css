@@ -405,6 +405,80 @@ button:disabled {
   background: rgba(15, 28, 51, 0.7);
 }
 
+.trendList {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.trendCard {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 0.65rem;
+  border: 1px solid #304a74;
+  border-radius: 12px;
+  padding: 0.58rem;
+  background: rgba(13, 24, 44, 0.72);
+}
+
+.reelPreview {
+  height: 150px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #16376c, #2f1f52);
+  border: 1px solid #4e6891;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  padding: 0.5rem;
+}
+
+.reelPreview.pulse {
+  animation: pulseCard 1.8s ease-in-out infinite;
+}
+
+.reelPreview.zoom {
+  animation: zoomCard 2.2s ease-in-out infinite;
+}
+
+.reelPreview.slide {
+  animation: slideCard 2s ease-in-out infinite;
+}
+
+.reelPreview.tilt {
+  animation: tiltCard 2.1s ease-in-out infinite;
+}
+
+.reelPreview.glow {
+  animation: glowCard 2.2s ease-in-out infinite;
+}
+
+@keyframes pulseCard {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@keyframes zoomCard {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+@keyframes slideCard {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(6px); }
+}
+
+@keyframes tiltCard {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-2deg); }
+}
+
+@keyframes glowCard {
+  0%, 100% { box-shadow: 0 0 0 rgba(42, 195, 255, 0); }
+  50% { box-shadow: 0 0 18px rgba(42, 195, 255, 0.45); }
+}
+
 .errorText {
   margin: 0.2rem 0;
   color: var(--bad);
@@ -436,6 +510,10 @@ button:disabled {
   }
 
   .postCard {
+    grid-template-columns: 1fr;
+  }
+
+  .trendCard {
     grid-template-columns: 1fr;
   }
 

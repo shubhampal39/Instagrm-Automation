@@ -45,11 +45,15 @@ export default function App() {
 
   const [posts, setPosts] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
+  const [trendingReels, setTrendingReels] = useState([]);
+  const [convertedReels, setConvertedReels] = useState([]);
   const [activeTab, setActiveTab] = useState("ALL");
   const [query, setQuery] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const [postingReelId, setPostingReelId] = useState("");
   const [draftOptimizedCaption, setDraftOptimizedCaption] = useState("");
   const [error, setError] = useState("");
 
@@ -107,9 +111,17 @@ export default function App() {
     setSystemStatus(data);
   }
 
+  async function fetchTrendingReels() {
+    const response = await fetch(`${API_BASE}/api/reels/trending-india`);
+    if (!response.ok) return;
+    const data = await response.json();
+    setTrendingReels(Array.isArray(data) ? data : []);
+  }
+
   useEffect(() => {
     fetchPosts();
     fetchSystemStatus();
+    fetchTrendingReels();
     const timer = setInterval(() => {
       fetchPosts();
       fetchSystemStatus();
@@ -265,6 +277,43 @@ export default function App() {
 
     setEditingId("");
     await fetchPosts();
+  }
+
+  function convertToAnimatedReels() {
+    setConverting(true);
+    const styles = ["pulse", "zoom", "slide", "tilt", "glow"];
+    const converted = trendingReels.map((item, index) => ({
+      ...item,
+      animation: styles[index % styles.length]
+    }));
+    setTimeout(() => {
+      setConvertedReels(converted);
+      setConverting(false);
+    }, 450);
+  }
+
+  async function postTrendReel(reel) {
+    setPostingReelId(reel.id);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/api/reels/post-template`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trendId: reel.id,
+          caption: reel.captionTemplate
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not post trend reel");
+      }
+      await fetchPosts();
+    } catch (postError) {
+      setError(postError.message);
+    } finally {
+      setPostingReelId("");
+    }
   }
 
   const healthTone =
@@ -501,6 +550,43 @@ export default function App() {
                       <button type="button" onClick={() => duplicatePost(post.id)}>Duplicate</button>
                     </div>
                   )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel trendPanel">
+          <div className="queueHeader">
+            <h2>Trending Reels (India)</h2>
+            <button type="button" onClick={convertToAnimatedReels} disabled={converting || trendingReels.length === 0}>
+              {converting ? "Converting..." : "Convert to Animated Reels"}
+            </button>
+          </div>
+
+          <div className="trendList">
+            {convertedReels.length === 0 && (
+              <p className="mutedText">
+                Click convert to generate animated reel previews. Each card includes one-click Instagram posting.
+              </p>
+            )}
+
+            {convertedReels.map((reel) => (
+              <article key={reel.id} className="trendCard">
+                <div className={`reelPreview ${reel.animation}`}>
+                  <span>{reel.title}</span>
+                </div>
+                <div>
+                  <p className="captionLine">{reel.title}</p>
+                  <p className="meta">Audio: {reel.audio}</p>
+                  <p className="meta">{reel.captionTemplate}</p>
+                  <button
+                    type="button"
+                    onClick={() => postTrendReel(reel)}
+                    disabled={postingReelId === reel.id}
+                  >
+                    {postingReelId === reel.id ? "Posting..." : "Post on Insta"}
+                  </button>
                 </div>
               </article>
             ))}
