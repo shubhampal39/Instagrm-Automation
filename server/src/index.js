@@ -108,7 +108,7 @@ app.post("/api/caption/optimize", async (req, res) => {
   return res.json({ caption: inputCaption, optimizedCaption });
 });
 
-app.post("/api/reels/post-template", async (req, res) => {
+app.post("/api/reels/post-template", upload.single("media"), async (req, res) => {
   const trendsId = String(req.body?.trendId || "");
   const caption = String(req.body?.caption || "").trim();
   const postType = "FEED";
@@ -117,23 +117,31 @@ app.post("/api/reels/post-template", async (req, res) => {
     return res.status(400).json({ error: "trendId and caption are required" });
   }
 
-  const posts = await getAllPosts();
-  const latestWithMedia = [...posts]
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .find((post) => Boolean(post.mediaPath));
+  let copiedRelPath = "";
+  let copiedFileName = "";
 
-  if (!latestWithMedia) {
-    return res.status(400).json({
-      error:
-        "No media available to create reel template post. Upload at least one image first from the composer."
-    });
+  if (req.file) {
+    copiedFileName = req.file.filename;
+    copiedRelPath = `${config.uploadDir}/${copiedFileName}`;
+  } else {
+    const posts = await getAllPosts();
+    const latestWithMedia = [...posts]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .find((post) => Boolean(post.mediaPath));
+
+    if (!latestWithMedia) {
+      return res.status(400).json({
+        error:
+          "No media available. Upload an image in the Trending Reels panel before posting."
+      });
+    }
+
+    const sourceAbs = path.join(process.cwd(), latestWithMedia.mediaPath);
+    copiedFileName = `${Date.now()}-reel-${latestWithMedia.mediaOriginalName.replace(/\s+/g, "-")}`;
+    copiedRelPath = `${config.uploadDir}/${copiedFileName}`;
+    const copiedAbs = path.join(process.cwd(), copiedRelPath);
+    await fs.copyFile(sourceAbs, copiedAbs);
   }
-
-  const sourceAbs = path.join(process.cwd(), latestWithMedia.mediaPath);
-  const copiedFileName = `${Date.now()}-reel-${latestWithMedia.mediaOriginalName.replace(/\s+/g, "-")}`;
-  const copiedRelPath = `${config.uploadDir}/${copiedFileName}`;
-  const copiedAbs = path.join(process.cwd(), copiedRelPath);
-  await fs.copyFile(sourceAbs, copiedAbs);
 
   const newPost = {
     id: uuidv4(),

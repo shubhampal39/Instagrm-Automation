@@ -47,6 +47,7 @@ export default function App() {
   const [systemStatus, setSystemStatus] = useState(null);
   const [trendingReels, setTrendingReels] = useState([]);
   const [convertedReels, setConvertedReels] = useState([]);
+  const [trendMedia, setTrendMedia] = useState(null);
   const [activeTab, setActiveTab] = useState("ALL");
   const [query, setQuery] = useState("");
 
@@ -296,13 +297,16 @@ export default function App() {
     setPostingReelId(reel.id);
     setError("");
     try {
+      const formData = new FormData();
+      formData.append("trendId", reel.id);
+      formData.append("caption", reel.captionTemplate);
+      if (trendMedia) {
+        formData.append("media", trendMedia);
+      }
+
       const response = await fetch(`${API_BASE}/api/reels/post-template`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          trendId: reel.id,
-          caption: reel.captionTemplate
-        })
+        body: formData
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -563,6 +567,18 @@ export default function App() {
               {converting ? "Converting..." : "Convert to Animated Reels"}
             </button>
           </div>
+
+          <label>
+            Reel Media (optional)
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => setTrendMedia(event.target.files?.[0] || null)}
+            />
+          </label>
+          <p className="meta">
+            Tip: Upload a fresh image here to use for all trend posts. If blank, app tries latest existing media.
+          </p>
 
           <div className="trendList">
             {convertedReels.length === 0 && (
