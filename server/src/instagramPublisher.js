@@ -79,16 +79,21 @@ async function waitForContainerReady(creationId) {
   const delayMs = 2500;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const statusResponse = await axios.get(
-      `https://graph.facebook.com/v20.0/${creationId}`,
-      {
-        params: {
-          fields: "status_code",
-          access_token: config.instagramAccessToken
-        },
-        timeout: 20000
-      }
-    );
+    let statusResponse;
+    try {
+      statusResponse = await axios.get(
+        `https://graph.facebook.com/v20.0/${creationId}`,
+        {
+          params: {
+            fields: "status_code",
+            access_token: config.instagramAccessToken
+          },
+          timeout: 20000
+        }
+      );
+    } catch (error) {
+      withMetaErrorDetails(error, "Meta container status check failed");
+    }
 
     const statusCode = statusResponse?.data?.status_code;
     if (statusCode === "FINISHED") {
@@ -103,6 +108,23 @@ async function waitForContainerReady(creationId) {
   }
 
   throw new Error("Instagram media container was not ready in time.");
+}
+
+function withMetaErrorDetails(error, fallback) {
+  const metaError = error?.response?.data?.error;
+  if (!metaError) {
+    throw error;
+  }
+
+  const details = [
+    metaError.message,
+    metaError.code ? `code=${metaError.code}` : "",
+    metaError.error_subcode ? `subcode=${metaError.error_subcode}` : ""
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  throw new Error(`${fallback}: ${details}`);
 }
 
 export async function publishToInstagram(post) {
@@ -132,18 +154,23 @@ export async function publishToInstagram(post) {
 
   const targetInstagramAccountId = await getTargetInstagramAccountId();
 
-  const container = await axios.post(
-    `https://graph.facebook.com/v20.0/${targetInstagramAccountId}/media`,
-    null,
-    {
-      params: {
-        image_url: imageUrl,
-        caption: post.optimizedCaption || post.caption,
-        access_token: config.instagramAccessToken
-      },
-      timeout: 20000
-    }
-  );
+  let container;
+  try {
+    container = await axios.post(
+      `https://graph.facebook.com/v20.0/${targetInstagramAccountId}/media`,
+      null,
+      {
+        params: {
+          image_url: imageUrl,
+          caption: post.optimizedCaption || post.caption,
+          access_token: config.instagramAccessToken
+        },
+        timeout: 20000
+      }
+    );
+  } catch (error) {
+    withMetaErrorDetails(error, "Meta /media failed");
+  }
 
   const creationId = container?.data?.id;
 
@@ -153,17 +180,22 @@ export async function publishToInstagram(post) {
 
   await waitForContainerReady(creationId);
 
-  const published = await axios.post(
-    `https://graph.facebook.com/v20.0/${targetInstagramAccountId}/media_publish`,
-    null,
-    {
-      params: {
-        creation_id: creationId,
-        access_token: config.instagramAccessToken
-      },
-      timeout: 20000
-    }
-  );
+  let published;
+  try {
+    published = await axios.post(
+      `https://graph.facebook.com/v20.0/${targetInstagramAccountId}/media_publish`,
+      null,
+      {
+        params: {
+          creation_id: creationId,
+          access_token: config.instagramAccessToken
+        },
+        timeout: 20000
+      }
+    );
+  } catch (error) {
+    withMetaErrorDetails(error, "Meta /media_publish failed");
+  }
 
   return {
     success: true,
