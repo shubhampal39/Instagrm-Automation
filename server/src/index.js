@@ -150,9 +150,27 @@ app.post("/api/posts/:id/publish-now", async (req, res) => {
   }
 });
 
-const clientDistPath = path.join(process.cwd(), "client", "dist");
+const clientDistCandidates = [
+  path.join(process.cwd(), "client", "dist"),
+  path.resolve(process.cwd(), "..", "client", "dist")
+];
+
+let clientDistPath = "";
 try {
-  await fs.access(clientDistPath);
+  for (const candidate of clientDistCandidates) {
+    try {
+      await fs.access(candidate);
+      clientDistPath = candidate;
+      break;
+    } catch {
+      // Try next candidate.
+    }
+  }
+
+  if (!clientDistPath) {
+    throw new Error("client dist not found");
+  }
+
   app.use(express.static(clientDistPath));
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
