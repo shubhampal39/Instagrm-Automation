@@ -70,6 +70,41 @@ async function getTargetInstagramAccountId() {
   );
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForContainerReady(creationId) {
+  const maxAttempts = 12;
+  const delayMs = 2500;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const statusResponse = await axios.get(
+      `https://graph.facebook.com/v20.0/${creationId}`,
+      {
+        params: {
+          fields: "status_code",
+          access_token: config.instagramAccessToken
+        },
+        timeout: 20000
+      }
+    );
+
+    const statusCode = statusResponse?.data?.status_code;
+    if (statusCode === "FINISHED") {
+      return;
+    }
+
+    if (statusCode === "ERROR" || statusCode === "EXPIRED") {
+      throw new Error(`Instagram media container status is ${statusCode}`);
+    }
+
+    await sleep(delayMs);
+  }
+
+  throw new Error("Instagram media container was not ready in time.");
+}
+
 export async function publishToInstagram(post) {
   const publishMode = String(config.publishMode || "").toLowerCase();
   if (publishMode === "mock") {
@@ -115,6 +150,8 @@ export async function publishToInstagram(post) {
   if (!creationId) {
     throw new Error("Could not create Instagram media container");
   }
+
+  await waitForContainerReady(creationId);
 
   const published = await axios.post(
     `https://graph.facebook.com/v20.0/${targetInstagramAccountId}/media_publish`,
