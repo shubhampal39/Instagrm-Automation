@@ -4,7 +4,7 @@ import multer from "multer";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { v4 as uuidv4 } from "uuid";
-import { config } from "./config.js";
+import { config, hasInstagramCredentials } from "./config.js";
 import { getAllPosts, getPostById, upsertPost } from "./storage.js";
 import { optimizeCaption } from "./captionAgent.js";
 import { publishToInstagram } from "./instagramPublisher.js";
@@ -38,9 +38,29 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "instagram-automation-server" });
 });
 
+app.get("/api/system/status", (_req, res) => {
+  res.json({
+    publishMode: config.publishMode,
+    serverBaseUrl: config.serverBaseUrl,
+    hasInstagramCredentials: hasInstagramCredentials(),
+    hasOpenAiKey: Boolean(config.openAiApiKey),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+  });
+});
+
 app.get("/api/posts", async (_req, res) => {
   const posts = await getAllPosts();
   res.json(posts);
+});
+
+app.post("/api/caption/optimize", async (req, res) => {
+  const inputCaption = String(req.body?.caption || "");
+  if (!inputCaption.trim()) {
+    return res.status(400).json({ error: "caption is required" });
+  }
+
+  const optimizedCaption = await optimizeCaption(inputCaption);
+  return res.json({ caption: inputCaption, optimizedCaption });
 });
 
 app.post("/api/posts", upload.single("media"), async (req, res) => {
@@ -148,6 +168,62 @@ app.post("/api/posts/:id/publish-now", async (req, res) => {
     await upsertPost(failedPost);
     return res.status(500).json(failedPost);
   }
+});
+
+app.post("/api/posts/:id/cancel", async (req, res) => {
+  const post = await getPostById(req.params.id);
+  if (!post) {
+    return res.status(404).json({ error: "post not found" });
+  }
+
+  if (post.status !== "SCHEDULED" && post.status !== "FAILED") {
+    return res.status(400).json({ error: "only scheduled or failed posts can be canceled" });
+  }
+
+  const canceled = {
+    ...post,
+    status: "CANCELED",
+    updatedAt: new Date().toISOString()
+  };
+  await upsertPost(canceled);
+  return res.json(canceled);
+});
+
+app.post("/api/posts/:id/duplicate", async (req, res) => {
+  const post = await getPostById(req.params.id);
+  if (!post) {
+    return res.status(404).json({ error: "post not found" });
+  }
+
+  const sourceAbs = path.join(process.cwd(), post.mediaPath);
+  const duplicateFileName = `${Date.now()}-copy-${post.mediaOriginalName.replace(/\s+/g, "-")}`;
+  const duplicateRelPath = `${config.uploadDir}/${duplicateFileName}`;
+  const duplicateAbs = path.join(process.cwd(), duplicateRelPath);
+  await fs.copyFile(sourceAbs, duplicateAbs);
+
+  const requestedSchedule = req.body?.scheduledAt;
+  const nextSchedule = requestedSchedule
+    ? new Date(requestedSchedule).toISOString()
+    : new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+  const duplicatedPost = {
+    id: uuidv4(),
+    caption: post.caption,
+    optimizedCaption: post.optimizedCaption,
+    mediaPath: duplicateRelPath,
+    mediaOriginalName: duplicateFileName,
+    scheduledAt: nextSchedule,
+    status: "SCHEDULED",
+    publishMode: "",
+    remotePostId: "",
+    error: "",
+    publishedAt: "",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  await upsertPost(duplicatedPost);
+  return res.status(201).json(duplicatedPost);
 });
 
 const clientDistCandidates = [
