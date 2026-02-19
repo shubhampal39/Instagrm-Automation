@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+
+# Node
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Runtime data
+server/uploads/*
+!server/uploads/.gitkeep
+server/data/*
+!server/data/.gitkeep
