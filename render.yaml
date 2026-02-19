@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: instagrm-automation
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: UPLOAD_DIR
+        value: uploads
+      - key: DATA_DIR
+        value: data
+      - key: DB_FILE
+        value: posts.json
+      - key: SERVER_BASE_URL
+        sync: false
+      - key: PUBLISH_MODE
+        value: live
+      - key: INSTAGRAM_ACCESS_TOKEN
+        sync: false
+      - key: INSTAGRAM_ACCOUNT_ID
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini

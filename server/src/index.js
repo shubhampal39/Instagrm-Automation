@@ -150,6 +150,20 @@ app.post("/api/posts/:id/publish-now", async (req, res) => {
   }
 });
 
+const clientDistPath = path.join(process.cwd(), "client", "dist");
+try {
+  await fs.access(clientDistPath);
+  app.use(express.static(clientDistPath));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
+      return next();
+    }
+    return res.sendFile(path.join(clientDistPath, "index.html"));
+  });
+} catch {
+  // Client build not present in local dev API-only mode.
+}
+
 app.use((error, _req, res, _next) => {
   if (error?.message) {
     return res.status(400).json({ error: error.message });

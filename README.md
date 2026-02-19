@@ -44,6 +44,24 @@ npm run dev:client
 
 Client runs at `http://localhost:5173`.
 
+## Deploy on Render (single service)
+
+This repo includes `render.yaml` so backend + frontend can run in one web service.
+
+1. Push this repository to GitHub.
+2. In Render, create a new Blueprint/Web Service from the repo.
+3. Set required environment values in Render:
+   - `SERVER_BASE_URL` = your Render service URL (for example `https://your-app.onrender.com`)
+   - `INSTAGRAM_ACCESS_TOKEN`
+   - `INSTAGRAM_ACCOUNT_ID`
+   - `PUBLISH_MODE=live`
+4. Deploy.
+
+The server will:
+- serve API under `/api/*`
+- serve uploads under `/uploads/*`
+- serve React app from `client/dist`
+
 ## API overview
 
 - `GET /api/health`

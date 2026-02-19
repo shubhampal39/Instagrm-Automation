@@ -11,6 +11,8 @@
     "dev:server": "npm --workspace server run dev",
     "dev:client": "npm --workspace client run dev",
     "start:server": "npm --workspace server run start",
-    "build:client": "npm --workspace client run build"
+    "build:client": "npm --workspace client run build",
+    "build": "npm run install:all && npm run build:client",
+    "start": "npm run start:server"
   }
 }
