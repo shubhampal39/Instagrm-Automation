@@ -11,29 +11,6 @@ function isLocalhostUrl(url) {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(url);
 }
 
-async function fetchConfiguredInstagramAccount() {
-  if (!config.instagramAccountId) {
-    return null;
-  }
-
-  try {
-    const response = await axios.get(
-      `https://graph.facebook.com/v20.0/${config.instagramAccountId}`,
-      {
-        params: {
-          fields: "id,username,account_type",
-          access_token: config.instagramAccessToken
-        },
-        timeout: 20000
-      }
-    );
-
-    return response?.data?.id ? response.data.id : null;
-  } catch {
-    return null;
-  }
-}
-
 async function discoverInstagramAccountFromPages() {
   const response = await axios.get("https://graph.facebook.com/v20.0/me/accounts", {
     params: {
@@ -55,9 +32,8 @@ async function discoverInstagramAccountFromPages() {
 }
 
 async function getTargetInstagramAccountId() {
-  const configured = await fetchConfiguredInstagramAccount();
-  if (configured) {
-    return configured;
+  if (config.instagramAccountId) {
+    return config.instagramAccountId;
   }
 
   const discovered = await discoverInstagramAccountFromPages();
