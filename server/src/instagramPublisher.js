@@ -103,6 +103,54 @@ function withMetaErrorDetails(error, fallback) {
   throw new Error(`${fallback}: ${details}`);
 }
 
+function normalizeCommentPool(pool) {
+  if (!Array.isArray(pool)) return [];
+  return pool
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function pickRandomComment(pool) {
+  if (!pool.length) return "";
+  const index = Math.floor(Math.random() * pool.length);
+  return pool[index];
+}
+
+async function autoCommentOnMedia(mediaId, message) {
+  if (!mediaId || !message) return { attempted: false, posted: false, commentId: "" };
+
+  try {
+    const response = await axios.post(
+      `https://graph.facebook.com/v20.0/${mediaId}/comments`,
+      null,
+      {
+        params: {
+          message,
+          access_token: config.instagramAccessToken
+        },
+        timeout: 20000
+      }
+    );
+
+    return {
+      attempted: true,
+      posted: true,
+      commentId: response?.data?.id || "",
+      message
+    };
+  } catch (error) {
+    const metaError = error?.response?.data?.error;
+    return {
+      attempted: true,
+      posted: false,
+      commentId: "",
+      message,
+      error: metaError?.message || error?.message || "Auto-comment failed"
+    };
+  }
+}
+
 export async function publishToInstagram(post) {
   const publishMode = String(config.publishMode || "").toLowerCase();
   if (publishMode === "mock") {
@@ -181,10 +229,20 @@ export async function publishToInstagram(post) {
     withMetaErrorDetails(error, "Meta /media_publish failed");
   }
 
+  const publishedMediaId = published?.data?.id || "";
+  const commentPool = normalizeCommentPool(post.commentPool);
+  const commentMessage = pickRandomComment(commentPool);
+
+  const autoComment =
+    post.autoCommentEnabled && postType !== "STORY"
+      ? await autoCommentOnMedia(publishedMediaId, commentMessage)
+      : { attempted: false, posted: false, commentId: "", message: "" };
+
   return {
     success: true,
     mode: "live",
-    remotePostId: published?.data?.id || "",
+    remotePostId: publishedMediaId,
+    autoComment,
     message: "Post published to Instagram"
   };
 }

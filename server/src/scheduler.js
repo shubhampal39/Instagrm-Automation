@@ -24,6 +24,10 @@ export function startScheduler() {
             status: "PUBLISHED",
             remotePostId: result.remotePostId,
             publishMode: result.mode,
+            autoCommentPosted: Boolean(result?.autoComment?.posted),
+            autoCommentMessage: result?.autoComment?.message || "",
+            autoCommentId: result?.autoComment?.commentId || "",
+            autoCommentError: result?.autoComment?.error || "",
             publishedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             error: ""

@@ -42,6 +42,10 @@ export default function App() {
   const [caption, setCaption] = useState("");
   const [scheduledAt, setScheduledAt] = useState(toLocalInputValue(new Date(Date.now() + 30 * 60 * 1000)));
   const [optimizeWithAi, setOptimizeWithAi] = useState(true);
+  const [autoCommentEnabled, setAutoCommentEnabled] = useState(false);
+  const [autoCommentPoolText, setAutoCommentPoolText] = useState(
+    "Thanks for watching.\nDrop your thoughts below.\nMore content coming soon."
+  );
 
   const [posts, setPosts] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
@@ -185,6 +189,8 @@ export default function App() {
       formData.append("caption", caption);
       formData.append("scheduledAt", new Date(scheduledAt).toISOString());
       formData.append("optimizeWithAi", String(optimizeWithAi && postType !== "STORY"));
+      formData.append("autoCommentEnabled", String(autoCommentEnabled && postType !== "STORY"));
+      formData.append("commentPool", autoCommentPoolText);
 
       const response = await fetch(`${API_BASE}/api/posts`, {
         method: "POST",
@@ -199,6 +205,7 @@ export default function App() {
       setMedia(null);
       setPostType("FEED");
       setCaption("");
+      setAutoCommentEnabled(false);
       setDraftOptimizedCaption("");
       setScheduledAt(toLocalInputValue(new Date(Date.now() + 30 * 60 * 1000)));
       await fetchPosts();
@@ -390,6 +397,31 @@ export default function App() {
               </span>
             </label>
 
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={autoCommentEnabled}
+                onChange={(event) => setAutoCommentEnabled(event.target.checked)}
+                disabled={postType === "STORY"}
+              />
+              <span>
+                {postType === "STORY"
+                  ? "Auto comments are disabled for story posts"
+                  : "Auto post a random comment after publish"}
+              </span>
+            </label>
+
+            {postType !== "STORY" && autoCommentEnabled && (
+              <label>
+                Random Comment Pool (one comment per line)
+                <textarea
+                  rows={4}
+                  value={autoCommentPoolText}
+                  onChange={(event) => setAutoCommentPoolText(event.target.value)}
+                />
+              </label>
+            )}
+
             <div className="actionRow">
               <button
                 type="button"
@@ -459,6 +491,12 @@ export default function App() {
 
                   <p className="meta">Scheduled: {formatDate(post.scheduledAt)}</p>
                   <p className="meta">Published: {formatDate(post.publishedAt)}</p>
+                  {post.autoCommentEnabled && (
+                    <p className="meta">
+                      Auto comment: {post.autoCommentPosted ? `Posted (${post.autoCommentMessage || "random"})` : "Pending/Not posted"}
+                    </p>
+                  )}
+                  {post.autoCommentError && <p className="errorText">Comment error: {post.autoCommentError}</p>}
 
                   <div className="timeline">
                     <span className={post.status !== "SCHEDULED" ? "done" : ""}>Queued</span>

@@ -66,8 +66,20 @@ app.post("/api/caption/optimize", async (req, res) => {
 
 app.post("/api/posts", upload.single("media"), async (req, res) => {
   try {
-    const { caption = "", scheduledAt, optimizeWithAi = "false", postType = "FEED" } = req.body;
+    const {
+      caption = "",
+      scheduledAt,
+      optimizeWithAi = "false",
+      postType = "FEED",
+      autoCommentEnabled = "false",
+      commentPool = ""
+    } = req.body;
     const normalizedPostType = String(postType).toUpperCase() === "STORY" ? "STORY" : "FEED";
+    const normalizedCommentPool = String(commentPool || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 20);
 
     if (!req.file) {
       return res.status(400).json({ error: "media file is required" });
@@ -83,6 +95,12 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
     const post = {
       id: uuidv4(),
       postType: normalizedPostType,
+      autoCommentEnabled: autoCommentEnabled === "true",
+      commentPool: normalizedCommentPool,
+      autoCommentPosted: false,
+      autoCommentMessage: "",
+      autoCommentId: "",
+      autoCommentError: "",
       caption,
       optimizedCaption,
       mediaPath: `${config.uploadDir}/${req.file.filename}`,
@@ -128,6 +146,11 @@ app.patch("/api/posts/:id", async (req, res) => {
   const next = {
     ...post,
     postType: req.body.postType ? String(req.body.postType).toUpperCase() : post.postType,
+    autoCommentEnabled:
+      req.body.autoCommentEnabled !== undefined
+        ? String(req.body.autoCommentEnabled).toLowerCase() === "true"
+        : post.autoCommentEnabled,
+    commentPool: Array.isArray(req.body.commentPool) ? req.body.commentPool : post.commentPool,
     caption: req.body.caption ?? post.caption,
     optimizedCaption: req.body.optimizedCaption ?? post.optimizedCaption,
     scheduledAt: req.body.scheduledAt ? new Date(req.body.scheduledAt).toISOString() : post.scheduledAt,
@@ -154,6 +177,10 @@ app.post("/api/posts/:id/publish-now", async (req, res) => {
       status: "PUBLISHED",
       remotePostId: result.remotePostId,
       publishMode: result.mode,
+      autoCommentPosted: Boolean(result?.autoComment?.posted),
+      autoCommentMessage: result?.autoComment?.message || "",
+      autoCommentId: result?.autoComment?.commentId || "",
+      autoCommentError: result?.autoComment?.error || "",
       error: "",
       publishedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
