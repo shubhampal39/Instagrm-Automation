@@ -347,7 +347,7 @@ export default function App() {
           </button>
         </div>
         <p className="meta">
-          End-to-end automation: create a 10-second animated baby reel, generate AI caption + hashtags,
+          End-to-end automation: create a motivational quote feed image, generate AI caption + hashtags,
           schedule in 1 hour, auto-publish.
         </p>
         <p className="meta">Enabled: {agentStatus?.enabled ? "Yes" : "No"}</p>
@@ -582,9 +582,9 @@ export default function App() {
               <article key={post.id} className="postCard">
                 {String(post.postType || "").toUpperCase() === "REEL" ||
                 String(post.mediaPath || "").toLowerCase().endsWith(".mp4") ? (
-                  <video src={`/${post.mediaPath}`} controls muted />
+                  <video src={post.mediaUrl || `/${post.mediaPath}`} controls muted />
                 ) : (
-                  <img src={`/${post.mediaPath}`} alt={post.mediaOriginalName} />
+                  <img src={post.mediaUrl || `/${post.mediaPath}`} alt={post.mediaOriginalName} />
                 )}
                 <div className="postContent">
                   <div className="postTop">

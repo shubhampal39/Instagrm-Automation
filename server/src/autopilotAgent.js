@@ -1,6 +1,3 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { spawn } from "node:child_process";
 import { v4 as uuidv4 } from "uuid";
 import { config } from "./config.js";
 import { optimizeCaption } from "./captionAgent.js";
@@ -19,86 +16,57 @@ const state = {
 
 function fallbackCaption() {
   const hooks = [
-    "Tiny smiles. Big emotions.",
-    "10 seconds of pure baby joy.",
-    "Cutest moment of the day unlocked.",
-    "Soft vibes. Strong engagement.",
-    "Baby energy that melts the feed."
+    "Discipline is stronger than mood.",
+    "Small progress daily becomes a life upgrade.",
+    "Be consistent. Results will follow.",
+    "Turn pressure into power.",
+    "Show up even when motivation is low."
   ];
   const pick = hooks[Math.floor(Math.random() * hooks.length)];
-  return `${pick}\n\n#BabyReels #CuteBaby #ReelItFeelIt #InstaIndia #ViralReels #DailyReels #TrendingNow #GrowthMode`;
+  return `${pick}\n\n#Motivation #Mindset #Growth #Discipline #DailyInspiration #Success #Focus #KeepGoing`;
 }
 
 async function generateCaption() {
   const basePrompt =
-    "Write a short, high-engagement Instagram caption for a 10-second animated baby reel. Keep it under 140 characters plus 8 relevant hashtags for India audience and viral reach.";
+    "Write a short, high-engagement Instagram caption for a motivational quote feed post. Keep it under 140 characters plus 8 relevant hashtags for India audience and growth reach.";
   const optimized = await optimizeCaption(basePrompt);
   return (optimized || fallbackCaption()).slice(0, 2200);
 }
 
-function runFfmpeg(outputPath) {
-  return new Promise((resolve, reject) => {
-    const args = [
-      "-y",
-      "-f",
-      "lavfi",
-      "-i",
-      "color=c=#ffe5ec:s=720x1280:d=10",
-      "-vf",
-      "drawbox=x='(w-200)/2+sin(t*2.2)*90':y='(h-200)/2+cos(t*1.9)*120':w=200:h=200:color=#ffffff@0.92:t=fill,drawbox=x='(w-110)/2+sin(t*3.1)*160':y='h*0.74+cos(t*2.5)*75':w=110:h=110:color=#ffb3c6@0.8:t=fill",
-      "-r",
-      "24",
-      "-pix_fmt",
-      "yuv420p",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "ultrafast",
-      "-crf",
-      "30",
-      "-maxrate",
-      "1200k",
-      "-bufsize",
-      "2400k",
-      outputPath
-    ];
+const QUOTE_POOL = [
+  "Your future is built by what you do today.",
+  "Consistency beats intensity.",
+  "Push through. Progress is on the other side.",
+  "Do hard things until they become your normal.",
+  "You do not need permission to level up."
+];
 
-    const child = spawn("ffmpeg", args, { stdio: "ignore" });
-    child.on("error", (error) => reject(error));
-    child.on("close", (code) => {
-      if (code === 0) return resolve();
-      return reject(new Error(`ffmpeg exited with code ${code}`));
-    });
-  });
+function pickQuote() {
+  return QUOTE_POOL[Math.floor(Math.random() * QUOTE_POOL.length)];
 }
 
-async function generateBabyReelAsset() {
-  const outputDir = path.join(process.cwd(), config.uploadDir);
-  await fs.mkdir(outputDir, { recursive: true });
-  const filename = `${Date.now()}-autopilot-baby-reel.mp4`;
-  const absOutput = path.join(outputDir, filename);
-  await runFfmpeg(absOutput);
-  return {
-    mediaPath: `${config.uploadDir}/${filename}`,
-    mediaOriginalName: filename
-  };
+function generateQuoteImageUrl(quote) {
+  const encoded = encodeURIComponent(quote.toUpperCase());
+  return `https://placehold.co/1080x1080/0f172a/f8fafc/png?text=${encoded}&font=montserrat`;
 }
 
 async function createAutopilotPost() {
-  const asset = await generateBabyReelAsset();
+  const quote = pickQuote();
+  const mediaUrl = generateQuoteImageUrl(quote);
   const caption = await generateCaption();
   const now = Date.now();
   const scheduleAt = new Date(now + config.autopilotDelayMinutes * 60 * 1000).toISOString();
 
   const post = {
     id: uuidv4(),
-    postType: "REEL",
+    postType: "FEED",
     source: "AUTOPILOT_AGENT",
+    mediaUrl,
     autoCommentEnabled: true,
     commentPool: [
-      "Would you watch part 2?",
-      "Rate this reel from 1 to 10.",
-      "More baby reels coming soon."
+      "Which line motivated you the most?",
+      "Save this for your next low-energy day.",
+      "Comment if you are building in silence."
     ],
     autoCommentPosted: false,
     autoCommentMessage: "",
@@ -113,8 +81,8 @@ async function createAutopilotPost() {
     scheduledCommentPostedAt: "",
     caption,
     optimizedCaption: caption,
-    mediaPath: asset.mediaPath,
-    mediaOriginalName: asset.mediaOriginalName,
+    mediaPath: "",
+    mediaOriginalName: "autopilot-quote.png",
     scheduledAt: scheduleAt,
     status: "SCHEDULED",
     publishMode: "",

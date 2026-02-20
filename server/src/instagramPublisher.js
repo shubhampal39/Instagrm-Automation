@@ -7,6 +7,13 @@ function localMediaToPublicUrl(mediaPath) {
   return `${config.serverBaseUrl}/uploads/${relative}`;
 }
 
+function resolvePublicMediaUrl(post) {
+  if (post?.mediaUrl && /^https?:\/\//i.test(post.mediaUrl)) {
+    return post.mediaUrl;
+  }
+  return localMediaToPublicUrl(post?.mediaPath || "");
+}
+
 function isLocalhostUrl(url) {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(url);
 }
@@ -204,7 +211,7 @@ export async function publishToInstagram(post) {
     );
   }
 
-  const imageUrl = localMediaToPublicUrl(post.mediaPath);
+  const imageUrl = resolvePublicMediaUrl(post);
 
   if (!imageUrl || isLocalhostUrl(imageUrl)) {
     throw new Error(

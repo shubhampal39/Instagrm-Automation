@@ -302,11 +302,16 @@ app.post("/api/posts/:id/duplicate", async (req, res) => {
     return res.status(404).json({ error: "post not found" });
   }
 
-  const sourceAbs = path.join(process.cwd(), post.mediaPath);
-  const duplicateFileName = `${Date.now()}-copy-${post.mediaOriginalName.replace(/\s+/g, "-")}`;
-  const duplicateRelPath = `${config.uploadDir}/${duplicateFileName}`;
-  const duplicateAbs = path.join(process.cwd(), duplicateRelPath);
-  await fs.copyFile(sourceAbs, duplicateAbs);
+  let duplicateFileName = `${Date.now()}-copy-${String(post.mediaOriginalName || "media").replace(/\s+/g, "-")}`;
+  let duplicateRelPath = "";
+  let mediaUrl = post.mediaUrl || "";
+
+  if (post.mediaPath) {
+    const sourceAbs = path.join(process.cwd(), post.mediaPath);
+    duplicateRelPath = `${config.uploadDir}/${duplicateFileName}`;
+    const duplicateAbs = path.join(process.cwd(), duplicateRelPath);
+    await fs.copyFile(sourceAbs, duplicateAbs);
+  }
 
   const requestedSchedule = req.body?.scheduledAt;
   const nextSchedule = requestedSchedule
@@ -331,6 +336,7 @@ app.post("/api/posts/:id/duplicate", async (req, res) => {
     scheduledCommentPostedAt: "",
     caption: post.caption,
     optimizedCaption: post.optimizedCaption,
+    mediaUrl,
     mediaPath: duplicateRelPath,
     mediaOriginalName: duplicateFileName,
     scheduledAt: nextSchedule,
