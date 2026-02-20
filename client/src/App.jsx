@@ -280,7 +280,7 @@ export default function App() {
       if (!response.ok) {
         throw new Error(payload.error || `Could not run autopilot agent (HTTP ${response.status})`);
       }
-      setAgentStatus(payload);
+      setAgentStatus(payload?.status || payload);
       await fetchPosts();
       await fetchSystemStatus();
     } catch (agentError) {

@@ -43,15 +43,23 @@ function runFfmpeg(outputPath) {
       "-f",
       "lavfi",
       "-i",
-      "color=c=#ffe5ec:s=1080x1920:d=10",
+      "color=c=#ffe5ec:s=720x1280:d=10",
       "-vf",
-      "drawbox=x='(w-240)/2+sin(t*2.2)*130':y='(h-240)/2+cos(t*1.9)*180':w=240:h=240:color=#ffffff@0.92:t=fill,drawbox=x='(w-140)/2+sin(t*3.1)*220':y='h*0.74+cos(t*2.5)*95':w=140:h=140:color=#ffb3c6@0.8:t=fill",
+      "drawbox=x='(w-200)/2+sin(t*2.2)*90':y='(h-200)/2+cos(t*1.9)*120':w=200:h=200:color=#ffffff@0.92:t=fill,drawbox=x='(w-110)/2+sin(t*3.1)*160':y='h*0.74+cos(t*2.5)*75':w=110:h=110:color=#ffb3c6@0.8:t=fill",
       "-r",
-      "30",
+      "24",
       "-pix_fmt",
       "yuv420p",
       "-c:v",
       "libx264",
+      "-preset",
+      "ultrafast",
+      "-crf",
+      "30",
+      "-maxrate",
+      "1200k",
+      "-bufsize",
+      "2400k",
       outputPath
     ];
 
@@ -145,6 +153,15 @@ export function getAutopilotStatus() {
 export async function runAutopilotNow() {
   await runCycle();
   return getAutopilotStatus();
+}
+
+export function triggerAutopilotNow() {
+  if (state.running) {
+    return false;
+  }
+  // Fire and forget to keep HTTP endpoints fast on low-memory/low-CPU hosts.
+  void runCycle();
+  return true;
 }
 
 export function startAutopilotAgent() {

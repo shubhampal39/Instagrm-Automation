@@ -10,7 +10,7 @@ import { optimizeCaption } from "./captionAgent.js";
 import { postCommentToInstagram, publishToInstagram } from "./instagramPublisher.js";
 import {
   getAutopilotStatus,
-  runAutopilotNow,
+  triggerAutopilotNow,
   startAutopilotAgent
 } from "./autopilotAgent.js";
 import { startScheduler } from "./scheduler.js";
@@ -87,8 +87,11 @@ app.get("/api/agent/status", (_req, res) => {
 
 app.post("/api/agent/run-now", async (_req, res) => {
   try {
-    const status = await runAutopilotNow();
-    return res.json(status);
+    const started = triggerAutopilotNow();
+    return res.status(started ? 202 : 200).json({
+      started,
+      status: getAutopilotStatus()
+    });
   } catch (error) {
     return res.status(500).json({ error: error?.message || "Autopilot run failed" });
   }
