@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import { config, hasInstagramCredentials } from "./config.js";
 import { getAllPosts, getPostById, upsertPost } from "./storage.js";
 import { optimizeCaption } from "./captionAgent.js";
-import { publishToInstagram } from "./instagramPublisher.js";
+import { postCommentToInstagram, publishToInstagram } from "./instagramPublisher.js";
 import { startScheduler } from "./scheduler.js";
 
 const app = express();
@@ -33,6 +33,30 @@ const upload = multer({
     return cb(new Error("Only image uploads are supported in this version."));
   }
 });
+
+async function maybeRunScheduledComment(post) {
+  if (!post.scheduledCommentEnabled || !post.remotePostId) {
+    return {
+      ...post,
+      scheduledCommentStatus: post.scheduledCommentEnabled ? "PENDING" : "NONE"
+    };
+  }
+
+  const dueAt = post.scheduledCommentAt ? new Date(post.scheduledCommentAt).getTime() : NaN;
+  if (Number.isNaN(dueAt) || dueAt > Date.now()) {
+    return { ...post, scheduledCommentStatus: "PENDING" };
+  }
+
+  const result = await postCommentToInstagram(post.remotePostId, post.scheduledCommentText || "");
+  return {
+    ...post,
+    scheduledCommentStatus: result.posted ? "POSTED" : "FAILED",
+    scheduledCommentId: result.commentId || "",
+    scheduledCommentError: result.error || "",
+    scheduledCommentPostedAt: result.posted ? new Date().toISOString() : "",
+    updatedAt: new Date().toISOString()
+  };
+}
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "instagram-automation-server" });
@@ -72,7 +96,10 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
       optimizeWithAi = "false",
       postType = "FEED",
       autoCommentEnabled = "false",
-      commentPool = ""
+      commentPool = "",
+      scheduledCommentEnabled = "false",
+      scheduledCommentText = "",
+      scheduledCommentAt = ""
     } = req.body;
     const normalizedPostType = String(postType).toUpperCase() === "STORY" ? "STORY" : "FEED";
     const normalizedCommentPool = String(commentPool || "")
@@ -101,6 +128,16 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
       autoCommentMessage: "",
       autoCommentId: "",
       autoCommentError: "",
+      scheduledCommentEnabled:
+        scheduledCommentEnabled === "true" && normalizedPostType !== "STORY",
+      scheduledCommentText: String(scheduledCommentText || "").trim(),
+      scheduledCommentAt: scheduledCommentAt
+        ? new Date(scheduledCommentAt).toISOString()
+        : "",
+      scheduledCommentStatus: "NONE",
+      scheduledCommentId: "",
+      scheduledCommentError: "",
+      scheduledCommentPostedAt: "",
       caption,
       optimizedCaption,
       mediaPath: `${config.uploadDir}/${req.file.filename}`,
@@ -151,6 +188,18 @@ app.patch("/api/posts/:id", async (req, res) => {
         ? String(req.body.autoCommentEnabled).toLowerCase() === "true"
         : post.autoCommentEnabled,
     commentPool: Array.isArray(req.body.commentPool) ? req.body.commentPool : post.commentPool,
+    scheduledCommentEnabled:
+      req.body.scheduledCommentEnabled !== undefined
+        ? String(req.body.scheduledCommentEnabled).toLowerCase() === "true"
+        : post.scheduledCommentEnabled,
+    scheduledCommentText:
+      req.body.scheduledCommentText !== undefined
+        ? String(req.body.scheduledCommentText)
+        : post.scheduledCommentText,
+    scheduledCommentAt:
+      req.body.scheduledCommentAt !== undefined && req.body.scheduledCommentAt
+        ? new Date(req.body.scheduledCommentAt).toISOString()
+        : post.scheduledCommentAt,
     caption: req.body.caption ?? post.caption,
     optimizedCaption: req.body.optimizedCaption ?? post.optimizedCaption,
     scheduledAt: req.body.scheduledAt ? new Date(req.body.scheduledAt).toISOString() : post.scheduledAt,
@@ -185,9 +234,9 @@ app.post("/api/posts/:id/publish-now", async (req, res) => {
       publishedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-
-    await upsertPost(publishedPost);
-    return res.json(publishedPost);
+    const withScheduledComment = await maybeRunScheduledComment(publishedPost);
+    await upsertPost(withScheduledComment);
+    return res.json(withScheduledComment);
   } catch (error) {
     const failedPost = {
       ...post,
@@ -240,6 +289,19 @@ app.post("/api/posts/:id/duplicate", async (req, res) => {
   const duplicatedPost = {
     id: uuidv4(),
     postType: post.postType || "FEED",
+    autoCommentEnabled: post.autoCommentEnabled || false,
+    commentPool: Array.isArray(post.commentPool) ? post.commentPool : [],
+    autoCommentPosted: false,
+    autoCommentMessage: "",
+    autoCommentId: "",
+    autoCommentError: "",
+    scheduledCommentEnabled: false,
+    scheduledCommentText: "",
+    scheduledCommentAt: "",
+    scheduledCommentStatus: "NONE",
+    scheduledCommentId: "",
+    scheduledCommentError: "",
+    scheduledCommentPostedAt: "",
     caption: post.caption,
     optimizedCaption: post.optimizedCaption,
     mediaPath: duplicateRelPath,

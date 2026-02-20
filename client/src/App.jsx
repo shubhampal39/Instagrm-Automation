@@ -46,6 +46,11 @@ export default function App() {
   const [autoCommentPoolText, setAutoCommentPoolText] = useState(
     "Thanks for watching.\nDrop your thoughts below.\nMore content coming soon."
   );
+  const [scheduledCommentEnabled, setScheduledCommentEnabled] = useState(false);
+  const [scheduledCommentText, setScheduledCommentText] = useState("");
+  const [scheduledCommentAt, setScheduledCommentAt] = useState(
+    toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000))
+  );
 
   const [posts, setPosts] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
@@ -191,6 +196,9 @@ export default function App() {
       formData.append("optimizeWithAi", String(optimizeWithAi && postType !== "STORY"));
       formData.append("autoCommentEnabled", String(autoCommentEnabled && postType !== "STORY"));
       formData.append("commentPool", autoCommentPoolText);
+      formData.append("scheduledCommentEnabled", String(scheduledCommentEnabled && postType !== "STORY"));
+      formData.append("scheduledCommentText", scheduledCommentText);
+      formData.append("scheduledCommentAt", scheduledCommentAt ? new Date(scheduledCommentAt).toISOString() : "");
 
       const response = await fetch(`${API_BASE}/api/posts`, {
         method: "POST",
@@ -206,6 +214,9 @@ export default function App() {
       setPostType("FEED");
       setCaption("");
       setAutoCommentEnabled(false);
+      setScheduledCommentEnabled(false);
+      setScheduledCommentText("");
+      setScheduledCommentAt(toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000)));
       setDraftOptimizedCaption("");
       setScheduledAt(toLocalInputValue(new Date(Date.now() + 30 * 60 * 1000)));
       await fetchPosts();
@@ -422,6 +433,41 @@ export default function App() {
               </label>
             )}
 
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={scheduledCommentEnabled}
+                onChange={(event) => setScheduledCommentEnabled(event.target.checked)}
+                disabled={postType === "STORY"}
+              />
+              <span>
+                {postType === "STORY"
+                  ? "Scheduled comment is disabled for story posts"
+                  : "Schedule a separate custom comment for this post"}
+              </span>
+            </label>
+
+            {postType !== "STORY" && scheduledCommentEnabled && (
+              <>
+                <label>
+                  Scheduled Comment Text
+                  <textarea
+                    rows={3}
+                    value={scheduledCommentText}
+                    onChange={(event) => setScheduledCommentText(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Scheduled Comment Time
+                  <input
+                    type="datetime-local"
+                    value={scheduledCommentAt}
+                    onChange={(event) => setScheduledCommentAt(event.target.value)}
+                  />
+                </label>
+              </>
+            )}
+
             <div className="actionRow">
               <button
                 type="button"
@@ -497,6 +543,17 @@ export default function App() {
                     </p>
                   )}
                   {post.autoCommentError && <p className="errorText">Comment error: {post.autoCommentError}</p>}
+                  {post.scheduledCommentEnabled && (
+                    <p className="meta">
+                      Scheduled comment: {post.scheduledCommentStatus || "PENDING"} at {formatDate(post.scheduledCommentAt)}
+                    </p>
+                  )}
+                  {post.scheduledCommentText && post.scheduledCommentEnabled && (
+                    <p className="meta">Comment text: {post.scheduledCommentText}</p>
+                  )}
+                  {post.scheduledCommentError && (
+                    <p className="errorText">Scheduled comment error: {post.scheduledCommentError}</p>
+                  )}
 
                   <div className="timeline">
                     <span className={post.status !== "SCHEDULED" ? "done" : ""}>Queued</span>

@@ -1,10 +1,19 @@
 import { getAllPosts, upsertPost } from "./storage.js";
-import { publishToInstagram } from "./instagramPublisher.js";
+import { postCommentToInstagram, publishToInstagram } from "./instagramPublisher.js";
 
 const CHECK_INTERVAL_MS = 15_000;
 
 function isDue(post) {
   return post.status === "SCHEDULED" && new Date(post.scheduledAt).getTime() <= Date.now();
+}
+
+function isScheduledCommentDue(post) {
+  if (post.status !== "PUBLISHED") return false;
+  if (!post.scheduledCommentEnabled) return false;
+  if (post.scheduledCommentStatus === "POSTED") return false;
+  if (!post.remotePostId) return false;
+  const dueAt = post.scheduledCommentAt ? new Date(post.scheduledCommentAt).getTime() : NaN;
+  return !Number.isNaN(dueAt) && dueAt <= Date.now();
 }
 
 export function startScheduler() {
@@ -28,6 +37,7 @@ export function startScheduler() {
             autoCommentMessage: result?.autoComment?.message || "",
             autoCommentId: result?.autoComment?.commentId || "",
             autoCommentError: result?.autoComment?.error || "",
+            scheduledCommentStatus: post.scheduledCommentEnabled ? "PENDING" : "NONE",
             publishedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             error: ""
@@ -40,6 +50,25 @@ export function startScheduler() {
             updatedAt: new Date().toISOString()
           });
         }
+      }
+
+      const updatedPosts = await getAllPosts();
+      const dueComments = updatedPosts.filter(isScheduledCommentDue);
+
+      for (const post of dueComments) {
+        const commentResult = await postCommentToInstagram(
+          post.remotePostId,
+          post.scheduledCommentText || ""
+        );
+
+        await upsertPost({
+          ...post,
+          scheduledCommentStatus: commentResult.posted ? "POSTED" : "FAILED",
+          scheduledCommentId: commentResult.commentId || "",
+          scheduledCommentError: commentResult.error || "",
+          scheduledCommentPostedAt: commentResult.posted ? new Date().toISOString() : "",
+          updatedAt: new Date().toISOString()
+        });
       }
     } catch {
       // Keep scheduler alive if one cycle fails.

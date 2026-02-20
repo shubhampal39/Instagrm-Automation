@@ -151,6 +151,42 @@ async function autoCommentOnMedia(mediaId, message) {
   }
 }
 
+export async function postCommentToInstagram(mediaId, message) {
+  if (!mediaId || !String(message || "").trim()) {
+    return { attempted: false, posted: false, commentId: "" };
+  }
+
+  try {
+    const response = await axios.post(
+      `https://graph.facebook.com/v20.0/${mediaId}/comments`,
+      null,
+      {
+        params: {
+          message: String(message).trim(),
+          access_token: config.instagramAccessToken
+        },
+        timeout: 20000
+      }
+    );
+
+    return {
+      attempted: true,
+      posted: true,
+      commentId: response?.data?.id || "",
+      message: String(message).trim()
+    };
+  } catch (error) {
+    const metaError = error?.response?.data?.error;
+    return {
+      attempted: true,
+      posted: false,
+      commentId: "",
+      message: String(message).trim(),
+      error: metaError?.message || error?.message || "Scheduled comment failed"
+    };
+  }
+}
+
 export async function publishToInstagram(post) {
   const publishMode = String(config.publishMode || "").toLowerCase();
   if (publishMode === "mock") {
