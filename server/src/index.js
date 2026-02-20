@@ -8,6 +8,11 @@ import { config, hasInstagramCredentials } from "./config.js";
 import { getAllPosts, getPostById, upsertPost } from "./storage.js";
 import { optimizeCaption } from "./captionAgent.js";
 import { postCommentToInstagram, publishToInstagram } from "./instagramPublisher.js";
+import {
+  getAutopilotStatus,
+  runAutopilotNow,
+  startAutopilotAgent
+} from "./autopilotAgent.js";
 import { startScheduler } from "./scheduler.js";
 
 const app = express();
@@ -25,12 +30,12 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 15 * 1024 * 1024 },
+  limits: { fileSize: 80 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
+    if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
       return cb(null, true);
     }
-    return cb(new Error("Only image uploads are supported in this version."));
+    return cb(new Error("Only image/video uploads are supported in this version."));
   }
 });
 
@@ -68,8 +73,21 @@ app.get("/api/system/status", (_req, res) => {
     serverBaseUrl: config.serverBaseUrl,
     hasInstagramCredentials: hasInstagramCredentials(),
     hasOpenAiKey: Boolean(config.openAiApiKey),
+    autopilotEnabled: config.autopilotEnabled,
+    autopilotIntervalMinutes: config.autopilotIntervalMinutes,
+    autopilotDelayMinutes: config.autopilotDelayMinutes,
+    autopilot: getAutopilotStatus(),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
   });
+});
+
+app.get("/api/agent/status", (_req, res) => {
+  res.json(getAutopilotStatus());
+});
+
+app.post("/api/agent/run-now", async (_req, res) => {
+  const status = await runAutopilotNow();
+  return res.json(status);
 });
 
 app.get("/api/posts", async (_req, res) => {
@@ -101,7 +119,9 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
       scheduledCommentText = "",
       scheduledCommentAt = ""
     } = req.body;
-    const normalizedPostType = String(postType).toUpperCase() === "STORY" ? "STORY" : "FEED";
+    const rawPostType = String(postType || "").toUpperCase();
+    const normalizedPostType =
+      rawPostType === "STORY" || rawPostType === "REEL" ? rawPostType : "FEED";
     const normalizedCommentPool = String(commentPool || "")
       .split("\n")
       .map((line) => line.trim())
@@ -360,6 +380,7 @@ app.use((error, _req, res, _next) => {
 });
 
 startScheduler();
+startAutopilotAgent();
 
 app.listen(config.port, () => {
   console.log(`API running on http://localhost:${config.port}`);

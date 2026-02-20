@@ -306,7 +306,8 @@ button:disabled {
   background: rgba(13, 24, 44, 0.72);
 }
 
-.postCard img {
+.postCard img,
+.postCard video {
   width: 120px;
   height: 120px;
   border-radius: 10px;
@@ -439,7 +440,8 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .postCard img {
+  .postCard img,
+  .postCard video {
     width: 100%;
     height: 220px;
   }

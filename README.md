@@ -1,13 +1,14 @@
 # Instagram Post Automation (React + Node)
 
-A simple AI-assisted Instagram automation dashboard:
+A bold AI-assisted Instagram automation dashboard:
 
 - Upload photo + write caption
-- Choose post type: Feed or Story
+- Choose post type: Feed, Reel, or Story
 - Optional AI caption optimization
 - Optional random auto-comment after publish (feed/reel media)
 - Schedule date/time
 - Automatic publish at scheduled time (background scheduler)
+- Optional autopilot agent that continuously generates and schedules baby reels
 
 ## Project structure
 
@@ -29,6 +30,7 @@ Important fields:
 - `PUBLISH_MODE=mock` keeps publishing local for testing.
 - Set `PUBLISH_MODE=live`, `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID` to publish through Instagram Graph API.
 - Set `OPENAI_API_KEY` to enable real AI caption optimization (otherwise fallback optimization is used).
+- Set `AUTOPILOT_ENABLED=true` to run the automated reel agent.
 
 ## 3) Run server
 
@@ -57,12 +59,29 @@ This repo includes `render.yaml` so backend + frontend can run in one web servic
    - `INSTAGRAM_ACCESS_TOKEN`
    - `INSTAGRAM_ACCOUNT_ID`
    - `PUBLISH_MODE=live`
+   - Optional: `AUTOPILOT_ENABLED=true`, `AUTOPILOT_DELAY_MINUTES=60`
 4. Deploy.
 
 The server will:
 - serve API under `/api/*`
 - serve uploads under `/uploads/*`
 - serve React app from `client/dist`
+
+## Autopilot Agent (Set-and-Forget Mode)
+
+When `AUTOPILOT_ENABLED=true`, a background AI agent runs automatically:
+
+1. Generates a short animated baby reel (~10s mp4)
+2. Writes an engagement-focused caption with hashtags
+3. Schedules that reel for publishing after 1 hour (configurable)
+4. Scheduler publishes it automatically with no manual actions
+
+Control/status endpoints:
+
+- `GET /api/agent/status`
+- `POST /api/agent/run-now`
+
+Note: Reel generation requires `ffmpeg` to be available on the host runtime.
 
 ## API overview
 

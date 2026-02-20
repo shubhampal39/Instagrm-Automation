@@ -215,14 +215,20 @@ export async function publishToInstagram(post) {
   const targetInstagramAccountId = await getTargetInstagramAccountId();
   const postType = String(post.postType || "FEED").toUpperCase();
   const isStory = postType === "STORY";
+  const isReel = postType === "REEL";
   const mediaParams = {
-    image_url: imageUrl,
     access_token: config.instagramAccessToken
   };
 
-  if (isStory) {
+  if (isReel) {
+    mediaParams.media_type = "REELS";
+    mediaParams.video_url = imageUrl;
+    mediaParams.caption = post.optimizedCaption || post.caption;
+  } else if (isStory) {
     mediaParams.media_type = "STORIES";
+    mediaParams.image_url = imageUrl;
   } else {
+    mediaParams.image_url = imageUrl;
     mediaParams.caption = post.optimizedCaption || post.caption;
   }
 

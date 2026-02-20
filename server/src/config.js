@@ -15,7 +15,10 @@ export const config = {
   openAiModel: env.OPENAI_MODEL || "gpt-4o-mini",
   instagramAccessToken: env.INSTAGRAM_ACCESS_TOKEN || "",
   instagramAccountId: env.INSTAGRAM_ACCOUNT_ID || "",
-  publishMode: env.PUBLISH_MODE || "mock"
+  publishMode: env.PUBLISH_MODE || "mock",
+  autopilotEnabled: String(env.AUTOPILOT_ENABLED || "false").toLowerCase() === "true",
+  autopilotIntervalMinutes: Math.max(30, Number(env.AUTOPILOT_INTERVAL_MINUTES || 180)),
+  autopilotDelayMinutes: Math.max(5, Number(env.AUTOPILOT_DELAY_MINUTES || 60))
 };
 
 export function hasInstagramCredentials() {

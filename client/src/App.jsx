@@ -54,6 +54,7 @@ export default function App() {
 
   const [posts, setPosts] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
+  const [agentStatus, setAgentStatus] = useState(null);
   const [activeTab, setActiveTab] = useState("ALL");
   const [query, setQuery] = useState("");
 
@@ -61,6 +62,7 @@ export default function App() {
   const [optimizing, setOptimizing] = useState(false);
   const [draftOptimizedCaption, setDraftOptimizedCaption] = useState("");
   const [error, setError] = useState("");
+  const [agentRunning, setAgentRunning] = useState(false);
 
   const [editingId, setEditingId] = useState("");
   const [editingCaption, setEditingCaption] = useState("");
@@ -114,6 +116,7 @@ export default function App() {
     if (!response.ok) return;
     const data = await response.json();
     setSystemStatus(data);
+    setAgentStatus(data?.autopilot || null);
   }
 
   useEffect(() => {
@@ -176,7 +179,7 @@ export default function App() {
     setError("");
 
     if (!media) {
-      setError("Please upload an image.");
+      setError("Please upload an image or video.");
       return;
     }
 
@@ -260,6 +263,25 @@ export default function App() {
     await fetchPosts();
   }
 
+  async function runAgentNow() {
+    setAgentRunning(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/api/agent/run-now`, { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not run autopilot agent");
+      }
+      setAgentStatus(payload);
+      await fetchPosts();
+      await fetchSystemStatus();
+    } catch (agentError) {
+      setError(agentError.message);
+    } finally {
+      setAgentRunning(false);
+    }
+  }
+
   function startEdit(post) {
     setEditingId(post.id);
     setEditingCaption(post.caption || "");
@@ -305,8 +327,28 @@ export default function App() {
           <p>IG Credentials: {systemStatus?.hasInstagramCredentials ? "Connected" : "Missing"}</p>
           <p>AI Caption: {systemStatus?.hasOpenAiKey ? "Live" : "Fallback"}</p>
           <p>Timezone: {systemStatus?.timezone || "-"}</p>
+          <p>Autopilot: {systemStatus?.autopilotEnabled ? "Enabled" : "Disabled"}</p>
         </div>
       </header>
+
+      <section className="panel">
+        <div className="queueHeader">
+          <h2>Autopilot Agent</h2>
+          <button type="button" onClick={runAgentNow} disabled={agentRunning}>
+            {agentRunning ? "Running..." : "Run Agent Now"}
+          </button>
+        </div>
+        <p className="meta">
+          End-to-end automation: create a 10-second animated baby reel, generate AI caption + hashtags,
+          schedule in 1 hour, auto-publish.
+        </p>
+        <p className="meta">Enabled: {agentStatus?.enabled ? "Yes" : "No"}</p>
+        <p className="meta">Running: {agentStatus?.running ? "Yes" : "No"}</p>
+        <p className="meta">Last run: {formatDate(agentStatus?.lastRunAt)}</p>
+        <p className="meta">Next run: {formatDate(agentStatus?.nextRunAt)}</p>
+        <p className="meta">Last post ID: {agentStatus?.lastPostId || "-"}</p>
+        {agentStatus?.lastError && <p className="errorText">{agentStatus.lastError}</p>}
+      </section>
 
       <section className="metrics">
         <article className="metric">
@@ -341,13 +383,17 @@ export default function App() {
               onDrop={onDrop}
             >
               {mediaPreview ? (
-                <img src={mediaPreview} alt="Preview" className="preview" />
+                media?.type?.startsWith("video/") ? (
+                  <video src={mediaPreview} className="preview" controls muted />
+                ) : (
+                  <img src={mediaPreview} alt="Preview" className="preview" />
+                )
               ) : (
-                <p>Drag & drop image here or choose file</p>
+                <p>Drag & drop image/video here or choose file</p>
               )}
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 onChange={(event) => setMedia(event.target.files?.[0] || null)}
               />
             </div>
@@ -356,6 +402,7 @@ export default function App() {
               Post Type
               <select value={postType} onChange={(event) => setPostType(event.target.value)}>
                 <option value="FEED">Feed Post</option>
+                <option value="REEL">Reel</option>
                 <option value="STORY">Story</option>
               </select>
             </label>
@@ -525,7 +572,12 @@ export default function App() {
 
             {filteredPosts.map((post) => (
               <article key={post.id} className="postCard">
-                <img src={`/${post.mediaPath}`} alt={post.mediaOriginalName} />
+                {String(post.postType || "").toUpperCase() === "REEL" ||
+                String(post.mediaPath || "").toLowerCase().endsWith(".mp4") ? (
+                  <video src={`/${post.mediaPath}`} controls muted />
+                ) : (
+                  <img src={`/${post.mediaPath}`} alt={post.mediaOriginalName} />
+                )}
                 <div className="postContent">
                   <div className="postTop">
                     <p className="captionLine">{post.optimizedCaption || post.caption || "(No caption)"}</p>
