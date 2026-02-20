@@ -268,9 +268,17 @@ export default function App() {
     setError("");
     try {
       const response = await fetch(`${API_BASE}/api/agent/run-now`, { method: "POST" });
-      const payload = await response.json();
+      const raw = await response.text();
+      let payload = {};
+      if (raw) {
+        try {
+          payload = JSON.parse(raw);
+        } catch {
+          throw new Error(raw);
+        }
+      }
       if (!response.ok) {
-        throw new Error(payload.error || "Could not run autopilot agent");
+        throw new Error(payload.error || `Could not run autopilot agent (HTTP ${response.status})`);
       }
       setAgentStatus(payload);
       await fetchPosts();

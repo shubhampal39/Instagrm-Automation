@@ -86,8 +86,12 @@ app.get("/api/agent/status", (_req, res) => {
 });
 
 app.post("/api/agent/run-now", async (_req, res) => {
-  const status = await runAutopilotNow();
-  return res.json(status);
+  try {
+    const status = await runAutopilotNow();
+    return res.json(status);
+  } catch (error) {
+    return res.status(500).json({ error: error?.message || "Autopilot run failed" });
+  }
 });
 
 app.get("/api/posts", async (_req, res) => {
