@@ -53,50 +53,6 @@ app.get("/api/posts", async (_req, res) => {
   res.json(posts);
 });
 
-app.get("/api/reels/trending-india", (_req, res) => {
-  res.json([
-    {
-      id: "india-valentine-hint",
-      title: "Valentine Hint",
-      audio: "original audio - wellace.asti",
-      captionTemplate:
-        "POV: What they said vs what they actually wanted. #ValentineVibes #PerfumeReel #IndiaCreators",
-      postType: "REEL"
-    },
-    {
-      id: "india-highlight-switch",
-      title: "Highlight Switch",
-      audio: "The Desperados - Let's Have Some Fun Alt",
-      captionTemplate:
-        "Top notes -> heart notes -> base notes in 3 cuts. #FragranceTok #IndianReels #PerfumeLover",
-      postType: "REEL"
-    },
-    {
-      id: "india-reality-tv-show",
-      title: "Reality TV Show",
-      audio: "original audio - fjollanilaofficial",
-      captionTemplate:
-        "A day in perfume business, reality-show edition. #SmallBusinessIndia #TrendingReels #BehindTheScenes",
-      postType: "REEL"
-    },
-    {
-      id: "india-bridgerton-aesthetic",
-      title: "Bridgerton Aesthetic",
-      audio: "Archer Marsh - Give Me Everything (Stripped Down)",
-      captionTemplate:
-        "Old-money perfume reveal with royal transitions. #AestheticReel #IndianFashion #PerfumeIndia",
-      postType: "REEL"
-    },
-    {
-      id: "india-raye-remix",
-      title: "Raye Remix",
-      audio: "original audio - hypaton",
-      captionTemplate:
-        "Fast-cut bestsellers in one high-energy reel. #ReelTrendIndia #PerfumeDrop #ShopNow",
-      postType: "REEL"
-    }
-  ]);
-});
 
 app.post("/api/caption/optimize", async (req, res) => {
   const inputCaption = String(req.body?.caption || "");
@@ -106,85 +62,6 @@ app.post("/api/caption/optimize", async (req, res) => {
 
   const optimizedCaption = await optimizeCaption(inputCaption);
   return res.json({ caption: inputCaption, optimizedCaption });
-});
-
-app.post("/api/reels/post-template", upload.single("media"), async (req, res) => {
-  const trendsId = String(req.body?.trendId || "");
-  const caption = String(req.body?.caption || "").trim();
-  const postType = "FEED";
-
-  if (!trendsId || !caption) {
-    return res.status(400).json({ error: "trendId and caption are required" });
-  }
-
-  let copiedRelPath = "";
-  let copiedFileName = "";
-
-  if (req.file) {
-    copiedFileName = req.file.filename;
-    copiedRelPath = `${config.uploadDir}/${copiedFileName}`;
-  } else {
-    const posts = await getAllPosts();
-    const latestWithMedia = [...posts]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .find((post) => Boolean(post.mediaPath));
-
-    if (!latestWithMedia) {
-      return res.status(400).json({
-        error:
-          "No media available. Upload an image in the Trending Reels panel before posting."
-      });
-    }
-
-    const sourceAbs = path.join(process.cwd(), latestWithMedia.mediaPath);
-    copiedFileName = `${Date.now()}-reel-${latestWithMedia.mediaOriginalName.replace(/\s+/g, "-")}`;
-    copiedRelPath = `${config.uploadDir}/${copiedFileName}`;
-    const copiedAbs = path.join(process.cwd(), copiedRelPath);
-    await fs.copyFile(sourceAbs, copiedAbs);
-  }
-
-  const newPost = {
-    id: uuidv4(),
-    postType,
-    caption,
-    optimizedCaption: "",
-    mediaPath: copiedRelPath,
-    mediaOriginalName: copiedFileName,
-    scheduledAt: new Date().toISOString(),
-    status: "PUBLISHING",
-    publishMode: "",
-    remotePostId: "",
-    error: "",
-    publishedAt: "",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    trendId: trendsId
-  };
-
-  await upsertPost(newPost);
-
-  try {
-    const result = await publishToInstagram(newPost);
-    const published = {
-      ...newPost,
-      status: "PUBLISHED",
-      publishMode: result.mode,
-      remotePostId: result.remotePostId,
-      publishedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    await upsertPost(published);
-    return res.status(201).json(published);
-  } catch (error) {
-    const failed = {
-      ...newPost,
-      status: "FAILED",
-      error: error?.message || "Could not post template reel",
-      updatedAt: new Date().toISOString()
-    };
-    await upsertPost(failed);
-    return res.status(500).json(failed);
-  }
 });
 
 app.post("/api/posts", upload.single("media"), async (req, res) => {
