@@ -1,12 +1,12 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap");
 
 :root {
-  --bg0: #0b1020;
-  --bg1: #101935;
-  --ink: #e9f1ff;
-  --muted: #9bb0cf;
-  --line: #2b3a5b;
-  --card: rgba(15, 24, 45, 0.82);
+  --bg0: #08101f;
+  --bg1: #0f1f37;
+  --ink: #f3f7ff;
+  --muted: #a5b9d5;
+  --line: rgba(125, 169, 230, 0.22);
+  --card: rgba(18, 32, 56, 0.52);
   --good: #39d98a;
   --warn: #f6b73c;
   --bad: #ff6b81;
@@ -19,7 +19,10 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at 20% 20%, #1a2a4f 0%, #0a0f1d 50%, #060b15 100%);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(36, 118, 255, 0.32), transparent 30%),
+    radial-gradient(circle at 85% 0%, rgba(40, 219, 255, 0.22), transparent 24%),
+    linear-gradient(140deg, #071225 0%, #09172d 45%, #06111f 100%);
   color: var(--ink);
   font-family: "Plus Jakarta Sans", sans-serif;
 }
@@ -136,8 +139,9 @@ h1 {
 }
 
 .panel {
-  padding: 0.9rem;
+  padding: 0.95rem;
   animation: rise 280ms ease-out;
+  box-shadow: 0 16px 44px rgba(4, 10, 22, 0.42);
 }
 
 @keyframes rise {
@@ -164,11 +168,11 @@ label {
 }
 
 .dropZone {
-  border: 1px dashed #4b668f;
+  border: 1px dashed rgba(144, 188, 255, 0.4);
   border-radius: 14px;
   padding: 0.75rem;
   text-align: center;
-  background: rgba(20, 34, 64, 0.65);
+  background: rgba(25, 46, 79, 0.32);
 }
 
 .dropZone p {
@@ -189,8 +193,8 @@ select,
 textarea,
 button {
   border-radius: 10px;
-  border: 1px solid #3c547a;
-  background: #111d37;
+  border: 1px solid rgba(123, 160, 217, 0.35);
+  background: rgba(13, 27, 52, 0.58);
   color: var(--ink);
   font: inherit;
   padding: 0.58rem 0.66rem;
@@ -207,7 +211,7 @@ button {
 
 button:hover {
   transform: translateY(-1px);
-  background: #192c53;
+  background: rgba(34, 66, 116, 0.62);
 }
 
 button:disabled {
@@ -300,10 +304,10 @@ button:disabled {
   display: grid;
   grid-template-columns: 120px 1fr;
   gap: 0.65rem;
-  border: 1px solid #304a74;
+  border: 1px solid rgba(116, 160, 226, 0.3);
   border-radius: 12px;
   padding: 0.58rem;
-  background: rgba(13, 24, 44, 0.72);
+  background: rgba(10, 21, 40, 0.58);
 }
 
 .postCard img,
@@ -400,10 +404,49 @@ button:disabled {
 }
 
 .activityItem {
-  border: 1px solid #334d78;
+  border: 1px solid rgba(116, 160, 226, 0.3);
   border-radius: 11px;
   padding: 0.6rem;
-  background: rgba(15, 28, 51, 0.7);
+  background: rgba(12, 24, 45, 0.54);
+}
+
+.channelPanel {
+  margin-top: 0.85rem;
+}
+
+.channelGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+}
+
+.channelCard {
+  text-align: left;
+  display: grid;
+  gap: 0.18rem;
+  background: rgba(15, 30, 56, 0.46);
+}
+
+.channelCard.active {
+  border-color: rgba(42, 195, 255, 0.78);
+  box-shadow: 0 0 0 1px rgba(42, 195, 255, 0.24) inset;
+}
+
+.channelName {
+  font-weight: 700;
+}
+
+.channelHandle {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.channelDraft {
+  margin-top: 0.55rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.45rem;
 }
 
 .errorText {
@@ -419,6 +462,10 @@ button:disabled {
 
   .metrics {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .channelGrid {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
 }
 
@@ -453,5 +500,9 @@ button:disabled {
 
   .queueHeader input {
     min-width: 0;
+  }
+
+  .channelDraft {
+    grid-template-columns: 1fr;
   }
 }

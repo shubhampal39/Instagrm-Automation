@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 
 const API_BASE = "";
 const CAPTION_LIMIT = 2200;
+const DEFAULT_CHANNELS = [
+  { id: "ig-1", name: "Instagram Channel 1", handle: "@channel_one" },
+  { id: "ig-2", name: "Instagram Channel 2", handle: "@channel_two" },
+  { id: "ig-3", name: "Instagram Channel 3", handle: "@channel_three" },
+  { id: "ig-4", name: "Instagram Channel 4", handle: "@channel_four" }
+];
 
 function statusTone(status) {
   if (status === "PUBLISHED") return "good";
@@ -51,6 +57,10 @@ export default function App() {
   const [scheduledCommentAt, setScheduledCommentAt] = useState(
     toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000))
   );
+  const [channels, setChannels] = useState(DEFAULT_CHANNELS);
+  const [selectedChannelId, setSelectedChannelId] = useState(DEFAULT_CHANNELS[0].id);
+  const [channelDraftName, setChannelDraftName] = useState("");
+  const [channelDraftHandle, setChannelDraftHandle] = useState("");
 
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState("ALL");
@@ -78,10 +88,16 @@ export default function App() {
         !normalized ||
         String(post.caption || "").toLowerCase().includes(normalized) ||
         String(post.optimizedCaption || "").toLowerCase().includes(normalized) ||
+        String(post.channelName || "").toLowerCase().includes(normalized) ||
+        String(post.channelHandle || "").toLowerCase().includes(normalized) ||
         String(post.status || "").toLowerCase().includes(normalized);
       return tabOk && searchOk;
     });
   }, [orderedPosts, activeTab, query]);
+  const selectedChannel = useMemo(
+    () => channels.find((channel) => channel.id === selectedChannelId) || channels[0],
+    [channels, selectedChannelId]
+  );
 
   const stats = useMemo(() => computeStats(posts), [posts]);
   const successRate = stats.total ? Math.round((stats.published / stats.total) * 100) : 0;
@@ -139,6 +155,17 @@ export default function App() {
     }
   }
 
+  function addChannel() {
+    const name = channelDraftName.trim();
+    const handle = channelDraftHandle.trim();
+    if (!name || !handle) return;
+    const nextId = `ig-${Date.now()}`;
+    setChannels((prev) => [...prev, { id: nextId, name, handle }]);
+    setSelectedChannelId(nextId);
+    setChannelDraftName("");
+    setChannelDraftHandle("");
+  }
+
   async function onOptimizeDraft() {
     if (postType === "STORY") return;
     if (!caption.trim()) return;
@@ -181,6 +208,9 @@ export default function App() {
       const formData = new FormData();
       formData.append("media", media);
       formData.append("postType", postType);
+      formData.append("channelId", selectedChannel?.id || "");
+      formData.append("channelName", selectedChannel?.name || "");
+      formData.append("channelHandle", selectedChannel?.handle || "");
       formData.append("caption", caption);
       formData.append("scheduledAt", new Date(scheduledAt).toISOString());
       formData.append("optimizeWithAi", String(optimizeWithAi && postType !== "STORY"));
@@ -283,10 +313,45 @@ export default function App() {
           <p className="eyebrow">AI Automation Studio</p>
           <h1>Instagram Post Command Center</h1>
           <p className="subtitle">
-            Upload, optimize, schedule, and auto-publish with full state visibility.
+            Transparent workspace for feed, reel, and story publishing across multiple Instagram channels.
           </p>
         </div>
       </header>
+
+      <section className="panel channelPanel">
+        <div className="queueHeader">
+          <h2>Channel Workspace</h2>
+          <p className="meta">You can start with 4 channels now and replace details later.</p>
+        </div>
+        <div className="channelGrid">
+          {channels.map((channel) => (
+            <button
+              key={channel.id}
+              type="button"
+              className={`channelCard ${selectedChannelId === channel.id ? "active" : ""}`}
+              onClick={() => setSelectedChannelId(channel.id)}
+            >
+              <span className="channelName">{channel.name}</span>
+              <span className="channelHandle">{channel.handle}</span>
+            </button>
+          ))}
+        </div>
+        <div className="channelDraft">
+          <input
+            type="text"
+            placeholder="New channel name"
+            value={channelDraftName}
+            onChange={(event) => setChannelDraftName(event.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="@handle"
+            value={channelDraftHandle}
+            onChange={(event) => setChannelDraftHandle(event.target.value)}
+          />
+          <button type="button" onClick={addChannel}>Add Channel</button>
+        </div>
+      </section>
 
       <section className="metrics">
         <article className="metric">
@@ -342,6 +407,17 @@ export default function App() {
                 <option value="FEED">Feed Post</option>
                 <option value="REEL">Reel</option>
                 <option value="STORY">Story</option>
+              </select>
+            </label>
+
+            <label>
+              Publish Channel
+              <select value={selectedChannelId} onChange={(event) => setSelectedChannelId(event.target.value)}>
+                {channels.map((channel) => (
+                  <option key={channel.id} value={channel.id}>
+                    {channel.name} ({channel.handle})
+                  </option>
+                ))}
               </select>
             </label>
 
@@ -527,6 +603,11 @@ export default function App() {
 
                   <p className="meta">Scheduled: {formatDate(post.scheduledAt)}</p>
                   <p className="meta">Published: {formatDate(post.publishedAt)}</p>
+                  {(post.channelName || post.channelHandle) && (
+                    <p className="meta">
+                      Channel: {post.channelName || "Unknown"} {post.channelHandle ? `(${post.channelHandle})` : ""}
+                    </p>
+                  )}
                   {post.autoCommentEnabled && (
                     <p className="meta">
                       Auto comment: {post.autoCommentPosted ? `Posted (${post.autoCommentMessage || "random"})` : "Pending/Not posted"}

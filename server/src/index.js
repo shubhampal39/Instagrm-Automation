@@ -119,6 +119,9 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
       scheduledAt,
       optimizeWithAi = "false",
       postType = "FEED",
+      channelId = "",
+      channelName = "",
+      channelHandle = "",
       autoCommentEnabled = "false",
       commentPool = "",
       scheduledCommentEnabled = "false",
@@ -148,6 +151,9 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
     const post = {
       id: uuidv4(),
       postType: normalizedPostType,
+      channelId: String(channelId || "").trim(),
+      channelName: String(channelName || "").trim(),
+      channelHandle: String(channelHandle || "").trim(),
       autoCommentEnabled: autoCommentEnabled === "true",
       commentPool: normalizedCommentPool,
       autoCommentPosted: false,
@@ -209,6 +215,9 @@ app.patch("/api/posts/:id", async (req, res) => {
   const next = {
     ...post,
     postType: req.body.postType ? String(req.body.postType).toUpperCase() : post.postType,
+    channelId: req.body.channelId !== undefined ? String(req.body.channelId) : post.channelId,
+    channelName: req.body.channelName !== undefined ? String(req.body.channelName) : post.channelName,
+    channelHandle: req.body.channelHandle !== undefined ? String(req.body.channelHandle) : post.channelHandle,
     autoCommentEnabled:
       req.body.autoCommentEnabled !== undefined
         ? String(req.body.autoCommentEnabled).toLowerCase() === "true"
@@ -320,6 +329,9 @@ app.post("/api/posts/:id/duplicate", async (req, res) => {
   const duplicatedPost = {
     id: uuidv4(),
     postType: post.postType || "FEED",
+    channelId: post.channelId || "",
+    channelName: post.channelName || "",
+    channelHandle: post.channelHandle || "",
     autoCommentEnabled: post.autoCommentEnabled || false,
     commentPool: Array.isArray(post.commentPool) ? post.commentPool : [],
     autoCommentPosted: false,
