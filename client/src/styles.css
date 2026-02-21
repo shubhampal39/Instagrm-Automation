@@ -449,6 +449,13 @@ button:disabled {
   gap: 0.45rem;
 }
 
+.channelEditor {
+  margin-top: 0.55rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
 .errorText {
   margin: 0.2rem 0;
   color: var(--bad);
@@ -503,6 +510,10 @@ button:disabled {
   }
 
   .channelDraft {
+    grid-template-columns: 1fr;
+  }
+
+  .channelEditor {
     grid-template-columns: 1fr;
   }
 }

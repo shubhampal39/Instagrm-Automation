@@ -2,20 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 
 const API_BASE = "";
 const CAPTION_LIMIT = 2200;
-const DEFAULT_CHANNELS = [
-  { id: "ig-1", name: "Elivane Perfume", handle: "@elivane_perfume", accountId: "", accessToken: "" },
-  { id: "ig-2", name: "Instagram Channel 2", handle: "@channel_two", accountId: "", accessToken: "" },
-  { id: "ig-3", name: "Instagram Channel 3", handle: "@channel_three", accountId: "", accessToken: "" },
-  { id: "ig-4", name: "Instagram Channel 4", handle: "@channel_four", accountId: "", accessToken: "" }
-];
-
-function statusTone(status) {
-  if (status === "PUBLISHED") return "good";
-  if (status === "FAILED") return "bad";
-  if (status === "PUBLISHING") return "warn";
-  if (status === "CANCELED") return "muted";
-  return "neutral";
-}
 
 function toLocalInputValue(date) {
   const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -27,9 +13,12 @@ function formatDate(iso) {
   return new Date(iso).toLocaleString();
 }
 
-function extractHashtags(text) {
-  const matches = text.match(/#[\w_]+/g) || [];
-  return [...new Set(matches)].slice(0, 8);
+function statusTone(status) {
+  if (status === "PUBLISHED") return "good";
+  if (status === "FAILED") return "bad";
+  if (status === "PUBLISHING") return "warn";
+  if (status === "CANCELED") return "muted";
+  return "neutral";
 }
 
 function computeStats(posts) {
@@ -42,34 +31,16 @@ function computeStats(posts) {
 }
 
 export default function App() {
+  const [channels, setChannels] = useState([]);
+  const [selectedChannelId, setSelectedChannelId] = useState("");
+  const [savingChannel, setSavingChannel] = useState(false);
+
   const [media, setMedia] = useState(null);
   const [mediaPreview, setMediaPreview] = useState("");
   const [postType, setPostType] = useState("FEED");
   const [caption, setCaption] = useState("");
   const [scheduledAt, setScheduledAt] = useState(toLocalInputValue(new Date(Date.now() + 30 * 60 * 1000)));
   const [optimizeWithAi, setOptimizeWithAi] = useState(true);
-  const [autoCommentEnabled, setAutoCommentEnabled] = useState(false);
-  const [autoCommentPoolText, setAutoCommentPoolText] = useState(
-    "Thanks for watching.\nDrop your thoughts below.\nMore content coming soon."
-  );
-  const [scheduledCommentEnabled, setScheduledCommentEnabled] = useState(false);
-  const [scheduledCommentText, setScheduledCommentText] = useState("");
-  const [scheduledCommentAt, setScheduledCommentAt] = useState(
-    toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000))
-  );
-  const [channels, setChannels] = useState(() => {
-    try {
-      const raw = localStorage.getItem("ig_channels");
-      if (!raw) return DEFAULT_CHANNELS;
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_CHANNELS;
-    } catch {
-      return DEFAULT_CHANNELS;
-    }
-  });
-  const [selectedChannelId, setSelectedChannelId] = useState(DEFAULT_CHANNELS[0].id);
-  const [channelDraftName, setChannelDraftName] = useState("");
-  const [channelDraftHandle, setChannelDraftHandle] = useState("");
 
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState("ALL");
@@ -80,9 +51,13 @@ export default function App() {
   const [draftOptimizedCaption, setDraftOptimizedCaption] = useState("");
   const [error, setError] = useState("");
 
-  const [editingId, setEditingId] = useState("");
-  const [editingCaption, setEditingCaption] = useState("");
-  const [editingSchedule, setEditingSchedule] = useState("");
+  const selectedChannel = useMemo(
+    () => channels.find((channel) => channel.id === selectedChannelId) || null,
+    [channels, selectedChannelId]
+  );
+
+  const stats = useMemo(() => computeStats(posts), [posts]);
+  const successRate = stats.total ? Math.round((stats.published / stats.total) * 100) : 0;
 
   const orderedPosts = useMemo(
     () => [...posts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
@@ -103,14 +78,6 @@ export default function App() {
       return tabOk && searchOk;
     });
   }, [orderedPosts, activeTab, query]);
-  const selectedChannel = useMemo(
-    () => channels.find((channel) => channel.id === selectedChannelId) || channels[0],
-    [channels, selectedChannelId]
-  );
-
-  const stats = useMemo(() => computeStats(posts), [posts]);
-  const successRate = stats.total ? Math.round((stats.published / stats.total) * 100) : 0;
-  const hashtags = useMemo(() => extractHashtags(caption), [caption]);
 
   const activity = useMemo(
     () =>
@@ -126,6 +93,17 @@ export default function App() {
     [posts]
   );
 
+  async function fetchChannels() {
+    const response = await fetch(`${API_BASE}/api/channels`);
+    if (!response.ok) return;
+    const data = await response.json();
+    const normalized = Array.isArray(data) ? data : [];
+    setChannels(normalized);
+    if (!selectedChannelId && normalized.length) {
+      setSelectedChannelId(normalized[0].id);
+    }
+  }
+
   async function fetchPosts() {
     const response = await fetch(`${API_BASE}/api/posts`);
     if (!response.ok) return;
@@ -134,6 +112,7 @@ export default function App() {
   }
 
   useEffect(() => {
+    fetchChannels();
     fetchPosts();
     const timer = setInterval(() => {
       fetchPosts();
@@ -152,10 +131,6 @@ export default function App() {
     return () => URL.revokeObjectURL(nextPreview);
   }, [media]);
 
-  useEffect(() => {
-    localStorage.setItem("ig_channels", JSON.stringify(channels));
-  }, [channels]);
-
   function applyQuickTime(minutesAhead) {
     setScheduledAt(toLocalInputValue(new Date(Date.now() + minutesAhead * 60 * 1000)));
   }
@@ -168,17 +143,6 @@ export default function App() {
     }
   }
 
-  function addChannel() {
-    const name = channelDraftName.trim();
-    const handle = channelDraftHandle.trim();
-    if (!name || !handle) return;
-    const nextId = `ig-${Date.now()}`;
-    setChannels((prev) => [...prev, { id: nextId, name, handle, accountId: "", accessToken: "" }]);
-    setSelectedChannelId(nextId);
-    setChannelDraftName("");
-    setChannelDraftHandle("");
-  }
-
   function updateSelectedChannel(patch) {
     setChannels((prev) =>
       prev.map((channel) =>
@@ -187,9 +151,38 @@ export default function App() {
     );
   }
 
+  async function saveChannel() {
+    if (!selectedChannel) return;
+    setSavingChannel(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE}/api/channels/${selectedChannel.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: selectedChannel.name,
+          handle: selectedChannel.handle,
+          accountId: selectedChannel.accountId,
+          accessToken: selectedChannel.accessToken
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not save channel settings");
+      }
+      await fetchChannels();
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSavingChannel(false);
+    }
+  }
+
   async function onOptimizeDraft() {
     if (postType === "STORY") return;
     if (!caption.trim()) return;
+
     setOptimizing(true);
     setError("");
 
@@ -213,8 +206,13 @@ export default function App() {
     event.preventDefault();
     setError("");
 
+    if (!selectedChannel) {
+      setError("Select a channel first.");
+      return;
+    }
+
     if (!media) {
-      setError("Please upload an image or video.");
+      setError("Please upload media.");
       return;
     }
 
@@ -229,19 +227,10 @@ export default function App() {
       const formData = new FormData();
       formData.append("media", media);
       formData.append("postType", postType);
-      formData.append("channelId", selectedChannel?.id || "");
-      formData.append("channelName", selectedChannel?.name || "");
-      formData.append("channelHandle", selectedChannel?.handle || "");
-      formData.append("channelAccountId", selectedChannel?.accountId || "");
-      formData.append("channelAccessToken", selectedChannel?.accessToken || "");
+      formData.append("channelId", selectedChannel.id);
       formData.append("caption", caption);
       formData.append("scheduledAt", new Date(scheduledAt).toISOString());
       formData.append("optimizeWithAi", String(optimizeWithAi && postType !== "STORY"));
-      formData.append("autoCommentEnabled", String(autoCommentEnabled && postType !== "STORY"));
-      formData.append("commentPool", autoCommentPoolText);
-      formData.append("scheduledCommentEnabled", String(scheduledCommentEnabled && postType !== "STORY"));
-      formData.append("scheduledCommentText", scheduledCommentText);
-      formData.append("scheduledCommentAt", scheduledCommentAt ? new Date(scheduledCommentAt).toISOString() : "");
 
       const response = await fetch(`${API_BASE}/api/posts`, {
         method: "POST",
@@ -256,12 +245,8 @@ export default function App() {
       setMedia(null);
       setPostType("FEED");
       setCaption("");
-      setAutoCommentEnabled(false);
-      setScheduledCommentEnabled(false);
-      setScheduledCommentText("");
-      setScheduledCommentAt(toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000)));
-      setDraftOptimizedCaption("");
       setScheduledAt(toLocalInputValue(new Date(Date.now() + 30 * 60 * 1000)));
+      setDraftOptimizedCaption("");
       await fetchPosts();
     } catch (submitError) {
       setError(submitError.message);
@@ -303,48 +288,23 @@ export default function App() {
     await fetchPosts();
   }
 
-  function startEdit(post) {
-    setEditingId(post.id);
-    setEditingCaption(post.caption || "");
-    setEditingSchedule(toLocalInputValue(new Date(post.scheduledAt)));
-  }
-
-  async function saveEdit() {
-    const response = await fetch(`${API_BASE}/api/posts/${editingId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        caption: editingCaption,
-        scheduledAt: new Date(editingSchedule).toISOString()
-      })
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error || "Could not update post");
-      return;
-    }
-
-    setEditingId("");
-    await fetchPosts();
-  }
-
   return (
     <div className="shell">
       <div className="bgOrbs" />
       <header className="hero">
         <div>
           <p className="eyebrow">AI Automation Studio</p>
-          <h1>Instagram Post Command Center</h1>
+          <h1>Instagram 4-Channel Automation</h1>
           <p className="subtitle">
-            Transparent workspace for feed, reel, and story publishing across multiple Instagram channels.
+            Schedule and auto publish feed posts, reels, and stories per Instagram account.
           </p>
         </div>
       </header>
 
       <section className="panel channelPanel">
         <div className="queueHeader">
-          <h2>Channel Workspace</h2>
-          <p className="meta">You can start with 4 channels now and replace details later.</p>
+          <h2>Channels</h2>
+          <p className="meta">Each channel uses its own Instagram Account ID and Access Token.</p>
         </div>
         <div className="channelGrid">
           {channels.map((channel) => (
@@ -354,41 +314,43 @@ export default function App() {
               className={`channelCard ${selectedChannelId === channel.id ? "active" : ""}`}
               onClick={() => setSelectedChannelId(channel.id)}
             >
-              <span className="channelName">{channel.name}</span>
-              <span className="channelHandle">{channel.handle}</span>
+              <span className="channelName">{channel.name || channel.id}</span>
+              <span className="channelHandle">{channel.handle || "@"}</span>
             </button>
           ))}
         </div>
-        <div className="channelDraft">
-          <input
-            type="text"
-            placeholder="New channel name"
-            value={channelDraftName}
-            onChange={(event) => setChannelDraftName(event.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="@handle"
-            value={channelDraftHandle}
-            onChange={(event) => setChannelDraftHandle(event.target.value)}
-          />
-          <button type="button" onClick={addChannel}>Add Channel</button>
-        </div>
+
         {selectedChannel && (
-          <div className="channelDraft">
+          <div className="channelEditor">
             <input
               type="text"
-              placeholder="Channel Account ID"
+              placeholder="Channel name"
+              value={selectedChannel.name || ""}
+              onChange={(event) => updateSelectedChannel({ name: event.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="@handle"
+              value={selectedChannel.handle || ""}
+              onChange={(event) => updateSelectedChannel({ handle: event.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Instagram Business Account ID"
               value={selectedChannel.accountId || ""}
               onChange={(event) => updateSelectedChannel({ accountId: event.target.value })}
             />
             <input
               type="text"
-              placeholder="Channel Access Token"
+              placeholder="Page/Instagram Access Token"
               value={selectedChannel.accessToken || ""}
               onChange={(event) => updateSelectedChannel({ accessToken: event.target.value })}
             />
-            <span className="meta">Saved locally in browser</span>
+            <div className="rowButtons">
+              <button type="button" onClick={saveChannel} disabled={savingChannel}>
+                {savingChannel ? "Saving..." : "Save Channel"}
+              </button>
+            </div>
           </div>
         )}
       </section>
@@ -432,7 +394,9 @@ export default function App() {
                   <img src={mediaPreview} alt="Preview" className="preview" />
                 )
               ) : (
-                <p>Drag & drop image/video here or choose file</p>
+                <p>
+                  Feed/Story: image only (jpg/png). Reel: video only (mp4/mov). Drag and drop or choose file.
+                </p>
               )}
               <input
                 type="file"
@@ -455,30 +419,24 @@ export default function App() {
               <textarea
                 rows={5}
                 value={caption}
-                placeholder={postType === "STORY" ? "Story text (optional)..." : "Tell your story..."}
+                placeholder={postType === "STORY" ? "Story text (optional)..." : "Write your caption..."}
                 onChange={(event) => setCaption(event.target.value.slice(0, CAPTION_LIMIT))}
               />
             </label>
 
             <div className="captionMeta">
               <span>{caption.length}/{CAPTION_LIMIT}</span>
-              <div className="tagRow">
-                {hashtags.map((tag) => (
-                  <span key={tag} className="chip">{tag}</span>
-                ))}
-              </div>
+              <span>Channel: {selectedChannel?.name || "-"}</span>
             </div>
 
-            <div className="row">
-              <label>
-                Date & Time
-                <input
-                  type="datetime-local"
-                  value={scheduledAt}
-                  onChange={(event) => setScheduledAt(event.target.value)}
-                />
-              </label>
-            </div>
+            <label>
+              Date & Time
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(event) => setScheduledAt(event.target.value)}
+              />
+            </label>
 
             <div className="quickButtons">
               <button type="button" onClick={() => applyQuickTime(60)}>In 1 hour</button>
@@ -494,69 +452,9 @@ export default function App() {
                 disabled={postType === "STORY"}
               />
               <span>
-                {postType === "STORY" ? "Caption optimization is disabled for story posts" : "Optimize caption on schedule"}
+                {postType === "STORY" ? "Caption optimization is disabled for story" : "Optimize caption before schedule"}
               </span>
             </label>
-
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={autoCommentEnabled}
-                onChange={(event) => setAutoCommentEnabled(event.target.checked)}
-                disabled={postType === "STORY"}
-              />
-              <span>
-                {postType === "STORY"
-                  ? "Auto comments are disabled for story posts"
-                  : "Auto post a random comment after publish"}
-              </span>
-            </label>
-
-            {postType !== "STORY" && autoCommentEnabled && (
-              <label>
-                Random Comment Pool (one comment per line)
-                <textarea
-                  rows={4}
-                  value={autoCommentPoolText}
-                  onChange={(event) => setAutoCommentPoolText(event.target.value)}
-                />
-              </label>
-            )}
-
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={scheduledCommentEnabled}
-                onChange={(event) => setScheduledCommentEnabled(event.target.checked)}
-                disabled={postType === "STORY"}
-              />
-              <span>
-                {postType === "STORY"
-                  ? "Scheduled comment is disabled for story posts"
-                  : "Schedule a separate custom comment for this post"}
-              </span>
-            </label>
-
-            {postType !== "STORY" && scheduledCommentEnabled && (
-              <>
-                <label>
-                  Scheduled Comment Text
-                  <textarea
-                    rows={3}
-                    value={scheduledCommentText}
-                    onChange={(event) => setScheduledCommentText(event.target.value)}
-                  />
-                </label>
-                <label>
-                  Scheduled Comment Time
-                  <input
-                    type="datetime-local"
-                    value={scheduledCommentAt}
-                    onChange={(event) => setScheduledCommentAt(event.target.value)}
-                  />
-                </label>
-              </>
-            )}
 
             <div className="actionRow">
               <button
@@ -567,13 +465,13 @@ export default function App() {
                 {optimizing ? "Optimizing..." : "Preview AI Optimize"}
               </button>
               <button type="submit" disabled={submitting}>
-                {submitting ? "Scheduling..." : "Schedule Post"}
+                {submitting ? "Scheduling..." : "Schedule"}
               </button>
             </div>
 
             {draftOptimizedCaption && (
               <div className="diffCard">
-                <p className="smallTitle">AI Optimization Preview</p>
+                <p className="smallTitle">AI Caption Preview</p>
                 <p><strong>Original:</strong> {caption}</p>
                 <p><strong>Optimized:</strong> {draftOptimizedCaption}</p>
                 <button type="button" onClick={() => setCaption(draftOptimizedCaption)}>
@@ -591,7 +489,7 @@ export default function App() {
             <h2>Pipeline</h2>
             <input
               type="text"
-              placeholder="Search caption/status"
+              placeholder="Search caption/status/channel"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -611,12 +509,10 @@ export default function App() {
           </div>
 
           <div className="postList">
-            {filteredPosts.length === 0 && <p className="mutedText">No posts match this view.</p>}
-
+            {filteredPosts.length === 0 && <p className="mutedText">No posts in this view.</p>}
             {filteredPosts.map((post) => (
               <article key={post.id} className="postCard">
-                {String(post.postType || "").toUpperCase() === "REEL" ||
-                String(post.mediaPath || "").toLowerCase().endsWith(".mp4") ? (
+                {String(post.postType || "").toUpperCase() === "REEL" ? (
                   <video src={post.mediaUrl || `/${post.mediaPath}`} controls muted />
                 ) : (
                   <img src={post.mediaUrl || `/${post.mediaPath}`} alt={post.mediaOriginalName} />
@@ -632,28 +528,9 @@ export default function App() {
 
                   <p className="meta">Scheduled: {formatDate(post.scheduledAt)}</p>
                   <p className="meta">Published: {formatDate(post.publishedAt)}</p>
-                  {(post.channelName || post.channelHandle) && (
-                    <p className="meta">
-                      Channel: {post.channelName || "Unknown"} {post.channelHandle ? `(${post.channelHandle})` : ""}
-                    </p>
-                  )}
-                  {post.autoCommentEnabled && (
-                    <p className="meta">
-                      Auto comment: {post.autoCommentPosted ? `Posted (${post.autoCommentMessage || "random"})` : "Pending/Not posted"}
-                    </p>
-                  )}
-                  {post.autoCommentError && <p className="errorText">Comment error: {post.autoCommentError}</p>}
-                  {post.scheduledCommentEnabled && (
-                    <p className="meta">
-                      Scheduled comment: {post.scheduledCommentStatus || "PENDING"} at {formatDate(post.scheduledCommentAt)}
-                    </p>
-                  )}
-                  {post.scheduledCommentText && post.scheduledCommentEnabled && (
-                    <p className="meta">Comment text: {post.scheduledCommentText}</p>
-                  )}
-                  {post.scheduledCommentError && (
-                    <p className="errorText">Scheduled comment error: {post.scheduledCommentError}</p>
-                  )}
+                  <p className="meta">
+                    Channel: {post.channelName || "Unknown"} {post.channelHandle ? `(${post.channelHandle})` : ""}
+                  </p>
 
                   <div className="timeline">
                     <span className={post.status !== "SCHEDULED" ? "done" : ""}>Queued</span>
@@ -665,37 +542,15 @@ export default function App() {
 
                   {post.error && <p className="errorText">{post.error}</p>}
 
-                  {editingId === post.id ? (
-                    <div className="editBox">
-                      <textarea
-                        rows={3}
-                        value={editingCaption}
-                        onChange={(event) => setEditingCaption(event.target.value)}
-                      />
-                      <input
-                        type="datetime-local"
-                        value={editingSchedule}
-                        onChange={(event) => setEditingSchedule(event.target.value)}
-                      />
-                      <div className="rowButtons">
-                        <button type="button" onClick={saveEdit}>Save</button>
-                        <button type="button" onClick={() => setEditingId("")}>Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rowButtons">
-                      {(post.status === "SCHEDULED" || post.status === "FAILED") && (
-                        <button type="button" onClick={() => publishNow(post.id)}>Publish Now</button>
-                      )}
-                      {(post.status === "SCHEDULED" || post.status === "FAILED") && (
-                        <button type="button" onClick={() => cancelPost(post.id)}>Cancel</button>
-                      )}
-                      {(post.status === "SCHEDULED" || post.status === "FAILED") && (
-                        <button type="button" onClick={() => startEdit(post)}>Edit</button>
-                      )}
-                      <button type="button" onClick={() => duplicatePost(post.id)}>Duplicate</button>
-                    </div>
-                  )}
+                  <div className="rowButtons">
+                    {(post.status === "SCHEDULED" || post.status === "FAILED") && (
+                      <button type="button" onClick={() => publishNow(post.id)}>Publish Now</button>
+                    )}
+                    {(post.status === "SCHEDULED" || post.status === "FAILED") && (
+                      <button type="button" onClick={() => cancelPost(post.id)}>Cancel</button>
+                    )}
+                    <button type="button" onClick={() => duplicatePost(post.id)}>Duplicate</button>
+                  </div>
                 </div>
               </article>
             ))}

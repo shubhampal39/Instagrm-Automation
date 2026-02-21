@@ -5,7 +5,14 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { v4 as uuidv4 } from "uuid";
 import { config, hasInstagramCredentials } from "./config.js";
-import { getAllPosts, getPostById, upsertPost } from "./storage.js";
+import {
+  getAllChannels,
+  getAllPosts,
+  getChannelById,
+  getPostById,
+  upsertChannel,
+  upsertPost
+} from "./storage.js";
 import { optimizeCaption } from "./captionAgent.js";
 import {
   postCommentToInstagramWithToken,
@@ -108,6 +115,32 @@ app.get("/api/posts", async (_req, res) => {
   res.json(posts);
 });
 
+app.get("/api/channels", async (_req, res) => {
+  const channels = await getAllChannels();
+  res.json(channels);
+});
+
+app.patch("/api/channels/:id", async (req, res) => {
+  const existing = await getChannelById(req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: "channel not found" });
+  }
+
+  const updated = await upsertChannel({
+    ...existing,
+    name: req.body?.name !== undefined ? String(req.body.name || "").trim() : existing.name,
+    handle: req.body?.handle !== undefined ? String(req.body.handle || "").trim() : existing.handle,
+    accountId:
+      req.body?.accountId !== undefined ? String(req.body.accountId || "").trim() : existing.accountId,
+    accessToken:
+      req.body?.accessToken !== undefined
+        ? String(req.body.accessToken || "").trim()
+        : existing.accessToken
+  });
+
+  return res.json(updated);
+});
+
 
 app.post("/api/caption/optimize", async (req, res) => {
   const inputCaption = String(req.body?.caption || "");
@@ -127,10 +160,6 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
       optimizeWithAi = "false",
       postType = "FEED",
       channelId = "",
-      channelName = "",
-      channelHandle = "",
-      channelAccountId = "",
-      channelAccessToken = "",
       autoCommentEnabled = "false",
       commentPool = "",
       scheduledCommentEnabled = "false",
@@ -140,6 +169,7 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
     const rawPostType = String(postType || "").toUpperCase();
     const normalizedPostType =
       rawPostType === "STORY" || rawPostType === "REEL" ? rawPostType : "FEED";
+
     const normalizedCommentPool = String(commentPool || "")
       .split("\n")
       .map((line) => line.trim())
@@ -154,17 +184,36 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
       return res.status(400).json({ error: "valid scheduledAt is required" });
     }
 
+    const selectedChannel = await getChannelById(String(channelId || "").trim());
+    if (!selectedChannel) {
+      return res.status(400).json({ error: "valid channelId is required" });
+    }
+
+    const mediaMimeType = String(req.file.mimetype || "").toLowerCase();
+    const isImage = mediaMimeType.startsWith("image/");
+    const isVideo = mediaMimeType.startsWith("video/");
+    if (!isImage && !isVideo) {
+      return res.status(400).json({ error: "Only image and video files are supported." });
+    }
+
+    if ((normalizedPostType === "FEED" || normalizedPostType === "STORY") && !isImage) {
+      return res.status(400).json({ error: "Feed and story require image file (jpg/png)." });
+    }
+    if (normalizedPostType === "REEL" && !isVideo) {
+      return res.status(400).json({ error: "Reel requires video file (mp4/mov)." });
+    }
+
     const optimizedCaption =
       optimizeWithAi === "true" && normalizedPostType !== "STORY" ? await optimizeCaption(caption) : "";
 
     const post = {
       id: uuidv4(),
       postType: normalizedPostType,
-      channelId: String(channelId || "").trim(),
-      channelName: String(channelName || "").trim(),
-      channelHandle: String(channelHandle || "").trim(),
-      channelAccountId: String(channelAccountId || "").trim(),
-      channelAccessToken: String(channelAccessToken || "").trim(),
+      channelId: selectedChannel.id,
+      channelName: selectedChannel.name,
+      channelHandle: selectedChannel.handle,
+      channelAccountId: selectedChannel.accountId,
+      channelAccessToken: selectedChannel.accessToken,
       autoCommentEnabled: autoCommentEnabled === "true",
       commentPool: normalizedCommentPool,
       autoCommentPosted: false,
@@ -185,6 +234,7 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
       optimizedCaption,
       mediaPath: `${config.uploadDir}/${req.file.filename}`,
       mediaOriginalName: req.file.originalname,
+      mediaMimeType,
       scheduledAt: new Date(scheduledAt).toISOString(),
       status: "SCHEDULED",
       publishMode: "",
@@ -226,17 +276,6 @@ app.patch("/api/posts/:id", async (req, res) => {
   const next = {
     ...post,
     postType: req.body.postType ? String(req.body.postType).toUpperCase() : post.postType,
-    channelId: req.body.channelId !== undefined ? String(req.body.channelId) : post.channelId,
-    channelName: req.body.channelName !== undefined ? String(req.body.channelName) : post.channelName,
-    channelHandle: req.body.channelHandle !== undefined ? String(req.body.channelHandle) : post.channelHandle,
-    channelAccountId:
-      req.body.channelAccountId !== undefined
-        ? String(req.body.channelAccountId)
-        : post.channelAccountId,
-    channelAccessToken:
-      req.body.channelAccessToken !== undefined
-        ? String(req.body.channelAccessToken)
-        : post.channelAccessToken,
     autoCommentEnabled:
       req.body.autoCommentEnabled !== undefined
         ? String(req.body.autoCommentEnabled).toLowerCase() === "true"
@@ -371,6 +410,7 @@ app.post("/api/posts/:id/duplicate", async (req, res) => {
     mediaUrl,
     mediaPath: duplicateRelPath,
     mediaOriginalName: duplicateFileName,
+    mediaMimeType: post.mediaMimeType || "",
     scheduledAt: nextSchedule,
     status: "SCHEDULED",
     publishMode: "",
