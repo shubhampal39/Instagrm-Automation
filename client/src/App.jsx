@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 const API_BASE = "";
 const CAPTION_LIMIT = 2200;
 const DEFAULT_CHANNELS = [
-  { id: "ig-1", name: "Instagram Channel 1", handle: "@channel_one" },
+  { id: "ig-1", name: "Elivane Perfume", handle: "@elivane_perfume" },
   { id: "ig-2", name: "Instagram Channel 2", handle: "@channel_two" },
   { id: "ig-3", name: "Instagram Channel 3", handle: "@channel_three" },
   { id: "ig-4", name: "Instagram Channel 4", handle: "@channel_four" }
