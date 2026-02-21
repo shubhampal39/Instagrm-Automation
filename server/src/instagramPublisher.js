@@ -303,9 +303,9 @@ export async function publishToInstagram(post) {
       };
     } catch (error) {
       const metaError = error?.response?.data?.error;
-      const isInvalidSession = metaError?.code === 190 && metaError?.error_subcode === 467;
+      const isTokenError = metaError?.code === 190;
       lastError = error;
-      if (isInvalidSession && i < uniqueTokens.length - 1) {
+      if (isTokenError && i < uniqueTokens.length - 1) {
         continue;
       }
       if (metaError) {
