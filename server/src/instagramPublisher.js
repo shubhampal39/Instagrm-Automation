@@ -18,11 +18,11 @@ function isLocalhostUrl(url) {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(url);
 }
 
-async function discoverInstagramAccountFromPages() {
+async function discoverInstagramAccountFromPages(accessToken) {
   const response = await axios.get("https://graph.facebook.com/v20.0/me/accounts", {
     params: {
       fields: "id,name,instagram_business_account{id,username}",
-      access_token: config.instagramAccessToken
+      access_token: accessToken
     },
     timeout: 20000
   });
@@ -38,12 +38,16 @@ async function discoverInstagramAccountFromPages() {
   return null;
 }
 
-async function getTargetInstagramAccountId() {
+async function getTargetInstagramAccountId(accessToken, accountIdOverride = "") {
+  if (accountIdOverride) {
+    return accountIdOverride;
+  }
+
   if (config.instagramAccountId) {
     return config.instagramAccountId;
   }
 
-  const discovered = await discoverInstagramAccountFromPages();
+  const discovered = await discoverInstagramAccountFromPages(accessToken);
   if (discovered) {
     return discovered;
   }
@@ -57,7 +61,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForContainerReady(creationId) {
+async function waitForContainerReady(creationId, accessToken) {
   const maxAttempts = 12;
   const delayMs = 2500;
 
@@ -69,7 +73,7 @@ async function waitForContainerReady(creationId) {
         {
           params: {
             fields: "status_code",
-            access_token: config.instagramAccessToken
+            access_token: accessToken
           },
           timeout: 20000
         }
@@ -159,6 +163,10 @@ async function autoCommentOnMedia(mediaId, message) {
 }
 
 export async function postCommentToInstagram(mediaId, message) {
+  return postCommentToInstagramWithToken(mediaId, message, config.instagramAccessToken);
+}
+
+export async function postCommentToInstagramWithToken(mediaId, message, accessToken) {
   if (!mediaId || !String(message || "").trim()) {
     return { attempted: false, posted: false, commentId: "" };
   }
@@ -170,7 +178,7 @@ export async function postCommentToInstagram(mediaId, message) {
       {
         params: {
           message: String(message).trim(),
-          access_token: config.instagramAccessToken
+          access_token: accessToken
         },
         timeout: 20000
       }
@@ -205,7 +213,10 @@ export async function publishToInstagram(post) {
     };
   }
 
-  if (!hasInstagramCredentials()) {
+  const accessToken = String(post?.channelAccessToken || config.instagramAccessToken || "").trim();
+  const accountIdOverride = String(post?.channelAccountId || "").trim();
+
+  if (!accessToken || (!accountIdOverride && !hasInstagramCredentials())) {
     throw new Error(
       "Live mode requires INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_ACCOUNT_ID environment variables."
     );
@@ -219,12 +230,12 @@ export async function publishToInstagram(post) {
     );
   }
 
-  const targetInstagramAccountId = await getTargetInstagramAccountId();
+  const targetInstagramAccountId = await getTargetInstagramAccountId(accessToken, accountIdOverride);
   const postType = String(post.postType || "FEED").toUpperCase();
   const isStory = postType === "STORY";
   const isReel = postType === "REEL";
   const mediaParams = {
-    access_token: config.instagramAccessToken
+    access_token: accessToken
   };
 
   if (isReel) {
@@ -259,7 +270,7 @@ export async function publishToInstagram(post) {
     throw new Error("Could not create Instagram media container");
   }
 
-  await waitForContainerReady(creationId);
+  await waitForContainerReady(creationId, accessToken);
 
   let published;
   try {
@@ -269,7 +280,7 @@ export async function publishToInstagram(post) {
       {
         params: {
           creation_id: creationId,
-          access_token: config.instagramAccessToken
+          access_token: accessToken
         },
         timeout: 20000
       }

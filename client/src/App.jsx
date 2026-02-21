@@ -3,10 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 const API_BASE = "";
 const CAPTION_LIMIT = 2200;
 const DEFAULT_CHANNELS = [
-  { id: "ig-1", name: "Elivane Perfume", handle: "@elivane_perfume" },
-  { id: "ig-2", name: "Instagram Channel 2", handle: "@channel_two" },
-  { id: "ig-3", name: "Instagram Channel 3", handle: "@channel_three" },
-  { id: "ig-4", name: "Instagram Channel 4", handle: "@channel_four" }
+  { id: "ig-1", name: "Elivane Perfume", handle: "@elivane_perfume", accountId: "", accessToken: "" },
+  { id: "ig-2", name: "Instagram Channel 2", handle: "@channel_two", accountId: "", accessToken: "" },
+  { id: "ig-3", name: "Instagram Channel 3", handle: "@channel_three", accountId: "", accessToken: "" },
+  { id: "ig-4", name: "Instagram Channel 4", handle: "@channel_four", accountId: "", accessToken: "" }
 ];
 
 function statusTone(status) {
@@ -57,7 +57,16 @@ export default function App() {
   const [scheduledCommentAt, setScheduledCommentAt] = useState(
     toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000))
   );
-  const [channels, setChannels] = useState(DEFAULT_CHANNELS);
+  const [channels, setChannels] = useState(() => {
+    try {
+      const raw = localStorage.getItem("ig_channels");
+      if (!raw) return DEFAULT_CHANNELS;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_CHANNELS;
+    } catch {
+      return DEFAULT_CHANNELS;
+    }
+  });
   const [selectedChannelId, setSelectedChannelId] = useState(DEFAULT_CHANNELS[0].id);
   const [channelDraftName, setChannelDraftName] = useState("");
   const [channelDraftHandle, setChannelDraftHandle] = useState("");
@@ -143,6 +152,10 @@ export default function App() {
     return () => URL.revokeObjectURL(nextPreview);
   }, [media]);
 
+  useEffect(() => {
+    localStorage.setItem("ig_channels", JSON.stringify(channels));
+  }, [channels]);
+
   function applyQuickTime(minutesAhead) {
     setScheduledAt(toLocalInputValue(new Date(Date.now() + minutesAhead * 60 * 1000)));
   }
@@ -160,10 +173,18 @@ export default function App() {
     const handle = channelDraftHandle.trim();
     if (!name || !handle) return;
     const nextId = `ig-${Date.now()}`;
-    setChannels((prev) => [...prev, { id: nextId, name, handle }]);
+    setChannels((prev) => [...prev, { id: nextId, name, handle, accountId: "", accessToken: "" }]);
     setSelectedChannelId(nextId);
     setChannelDraftName("");
     setChannelDraftHandle("");
+  }
+
+  function updateSelectedChannel(patch) {
+    setChannels((prev) =>
+      prev.map((channel) =>
+        channel.id === selectedChannelId ? { ...channel, ...patch } : channel
+      )
+    );
   }
 
   async function onOptimizeDraft() {
@@ -211,6 +232,8 @@ export default function App() {
       formData.append("channelId", selectedChannel?.id || "");
       formData.append("channelName", selectedChannel?.name || "");
       formData.append("channelHandle", selectedChannel?.handle || "");
+      formData.append("channelAccountId", selectedChannel?.accountId || "");
+      formData.append("channelAccessToken", selectedChannel?.accessToken || "");
       formData.append("caption", caption);
       formData.append("scheduledAt", new Date(scheduledAt).toISOString());
       formData.append("optimizeWithAi", String(optimizeWithAi && postType !== "STORY"));
@@ -351,6 +374,23 @@ export default function App() {
           />
           <button type="button" onClick={addChannel}>Add Channel</button>
         </div>
+        {selectedChannel && (
+          <div className="channelDraft">
+            <input
+              type="text"
+              placeholder="Channel Account ID"
+              value={selectedChannel.accountId || ""}
+              onChange={(event) => updateSelectedChannel({ accountId: event.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Channel Access Token"
+              value={selectedChannel.accessToken || ""}
+              onChange={(event) => updateSelectedChannel({ accessToken: event.target.value })}
+            />
+            <span className="meta">Saved locally in browser</span>
+          </div>
+        )}
       </section>
 
       <section className="metrics">

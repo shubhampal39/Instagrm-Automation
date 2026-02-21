@@ -1,5 +1,8 @@
 import { getAllPosts, upsertPost } from "./storage.js";
-import { postCommentToInstagram, publishToInstagram } from "./instagramPublisher.js";
+import {
+  postCommentToInstagramWithToken,
+  publishToInstagram
+} from "./instagramPublisher.js";
 
 const CHECK_INTERVAL_MS = 15_000;
 
@@ -56,9 +59,10 @@ export function startScheduler() {
       const dueComments = updatedPosts.filter(isScheduledCommentDue);
 
       for (const post of dueComments) {
-        const commentResult = await postCommentToInstagram(
+        const commentResult = await postCommentToInstagramWithToken(
           post.remotePostId,
-          post.scheduledCommentText || ""
+          post.scheduledCommentText || "",
+          post.channelAccessToken || ""
         );
 
         await upsertPost({

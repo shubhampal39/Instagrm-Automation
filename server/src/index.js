@@ -7,7 +7,10 @@ import { v4 as uuidv4 } from "uuid";
 import { config, hasInstagramCredentials } from "./config.js";
 import { getAllPosts, getPostById, upsertPost } from "./storage.js";
 import { optimizeCaption } from "./captionAgent.js";
-import { postCommentToInstagram, publishToInstagram } from "./instagramPublisher.js";
+import {
+  postCommentToInstagramWithToken,
+  publishToInstagram
+} from "./instagramPublisher.js";
 import {
   getAutopilotStatus,
   triggerAutopilotNow
@@ -51,7 +54,11 @@ async function maybeRunScheduledComment(post) {
     return { ...post, scheduledCommentStatus: "PENDING" };
   }
 
-  const result = await postCommentToInstagram(post.remotePostId, post.scheduledCommentText || "");
+  const result = await postCommentToInstagramWithToken(
+    post.remotePostId,
+    post.scheduledCommentText || "",
+    post.channelAccessToken || ""
+  );
   return {
     ...post,
     scheduledCommentStatus: result.posted ? "POSTED" : "FAILED",
@@ -122,6 +129,8 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
       channelId = "",
       channelName = "",
       channelHandle = "",
+      channelAccountId = "",
+      channelAccessToken = "",
       autoCommentEnabled = "false",
       commentPool = "",
       scheduledCommentEnabled = "false",
@@ -154,6 +163,8 @@ app.post("/api/posts", upload.single("media"), async (req, res) => {
       channelId: String(channelId || "").trim(),
       channelName: String(channelName || "").trim(),
       channelHandle: String(channelHandle || "").trim(),
+      channelAccountId: String(channelAccountId || "").trim(),
+      channelAccessToken: String(channelAccessToken || "").trim(),
       autoCommentEnabled: autoCommentEnabled === "true",
       commentPool: normalizedCommentPool,
       autoCommentPosted: false,
@@ -218,6 +229,14 @@ app.patch("/api/posts/:id", async (req, res) => {
     channelId: req.body.channelId !== undefined ? String(req.body.channelId) : post.channelId,
     channelName: req.body.channelName !== undefined ? String(req.body.channelName) : post.channelName,
     channelHandle: req.body.channelHandle !== undefined ? String(req.body.channelHandle) : post.channelHandle,
+    channelAccountId:
+      req.body.channelAccountId !== undefined
+        ? String(req.body.channelAccountId)
+        : post.channelAccountId,
+    channelAccessToken:
+      req.body.channelAccessToken !== undefined
+        ? String(req.body.channelAccessToken)
+        : post.channelAccessToken,
     autoCommentEnabled:
       req.body.autoCommentEnabled !== undefined
         ? String(req.body.autoCommentEnabled).toLowerCase() === "true"
@@ -332,6 +351,8 @@ app.post("/api/posts/:id/duplicate", async (req, res) => {
     channelId: post.channelId || "",
     channelName: post.channelName || "",
     channelHandle: post.channelHandle || "",
+    channelAccountId: post.channelAccountId || "",
+    channelAccessToken: post.channelAccessToken || "",
     autoCommentEnabled: post.autoCommentEnabled || false,
     commentPool: Array.isArray(post.commentPool) ? post.commentPool : [],
     autoCommentPosted: false,
