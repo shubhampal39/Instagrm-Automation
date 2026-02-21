@@ -10,8 +10,7 @@ import { optimizeCaption } from "./captionAgent.js";
 import { postCommentToInstagram, publishToInstagram } from "./instagramPublisher.js";
 import {
   getAutopilotStatus,
-  triggerAutopilotNow,
-  startAutopilotAgent
+  triggerAutopilotNow
 } from "./autopilotAgent.js";
 import { startScheduler } from "./scheduler.js";
 
@@ -393,7 +392,6 @@ app.use((error, _req, res, _next) => {
 });
 
 startScheduler();
-startAutopilotAgent();
 
 app.listen(config.port, () => {
   console.log(`API running on http://localhost:${config.port}`);

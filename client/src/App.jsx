@@ -53,8 +53,6 @@ export default function App() {
   );
 
   const [posts, setPosts] = useState([]);
-  const [systemStatus, setSystemStatus] = useState(null);
-  const [agentStatus, setAgentStatus] = useState(null);
   const [activeTab, setActiveTab] = useState("ALL");
   const [query, setQuery] = useState("");
 
@@ -62,7 +60,6 @@ export default function App() {
   const [optimizing, setOptimizing] = useState(false);
   const [draftOptimizedCaption, setDraftOptimizedCaption] = useState("");
   const [error, setError] = useState("");
-  const [agentRunning, setAgentRunning] = useState(false);
 
   const [editingId, setEditingId] = useState("");
   const [editingCaption, setEditingCaption] = useState("");
@@ -111,20 +108,10 @@ export default function App() {
     setPosts(Array.isArray(data) ? data : []);
   }
 
-  async function fetchSystemStatus() {
-    const response = await fetch(`${API_BASE}/api/system/status`);
-    if (!response.ok) return;
-    const data = await response.json();
-    setSystemStatus(data);
-    setAgentStatus(data?.autopilot || null);
-  }
-
   useEffect(() => {
     fetchPosts();
-    fetchSystemStatus();
     const timer = setInterval(() => {
       fetchPosts();
-      fetchSystemStatus();
     }, 10000);
     return () => clearInterval(timer);
   }, []);
@@ -263,33 +250,6 @@ export default function App() {
     await fetchPosts();
   }
 
-  async function runAgentNow() {
-    setAgentRunning(true);
-    setError("");
-    try {
-      const response = await fetch(`${API_BASE}/api/agent/run-now`, { method: "POST" });
-      const raw = await response.text();
-      let payload = {};
-      if (raw) {
-        try {
-          payload = JSON.parse(raw);
-        } catch {
-          throw new Error(raw);
-        }
-      }
-      if (!response.ok) {
-        throw new Error(payload.error || `Could not run autopilot agent (HTTP ${response.status})`);
-      }
-      setAgentStatus(payload?.status || payload);
-      await fetchPosts();
-      await fetchSystemStatus();
-    } catch (agentError) {
-      setError(agentError.message);
-    } finally {
-      setAgentRunning(false);
-    }
-  }
-
   function startEdit(post) {
     setEditingId(post.id);
     setEditingCaption(post.caption || "");
@@ -315,9 +275,6 @@ export default function App() {
     await fetchPosts();
   }
 
-  const healthTone =
-    systemStatus?.publishMode === "live" && systemStatus?.hasInstagramCredentials ? "good" : "warn";
-
   return (
     <div className="shell">
       <div className="bgOrbs" />
@@ -329,34 +286,7 @@ export default function App() {
             Upload, optimize, schedule, and auto-publish with full state visibility.
           </p>
         </div>
-        <div className={`healthCard ${healthTone}`}>
-          <p className="healthTitle">System Health</p>
-          <p>Mode: {systemStatus?.publishMode || "-"}</p>
-          <p>IG Credentials: {systemStatus?.hasInstagramCredentials ? "Connected" : "Missing"}</p>
-          <p>AI Caption: {systemStatus?.hasOpenAiKey ? "Live" : "Fallback"}</p>
-          <p>Timezone: {systemStatus?.timezone || "-"}</p>
-          <p>Autopilot: {systemStatus?.autopilotEnabled ? "Enabled" : "Disabled"}</p>
-        </div>
       </header>
-
-      <section className="panel">
-        <div className="queueHeader">
-          <h2>Autopilot Agent</h2>
-          <button type="button" onClick={runAgentNow} disabled={agentRunning}>
-            {agentRunning ? "Running..." : "Run Agent Now"}
-          </button>
-        </div>
-        <p className="meta">
-          End-to-end automation: create a motivational quote feed image, generate AI caption + hashtags,
-          schedule in 1 hour, auto-publish.
-        </p>
-        <p className="meta">Enabled: {agentStatus?.enabled ? "Yes" : "No"}</p>
-        <p className="meta">Running: {agentStatus?.running ? "Yes" : "No"}</p>
-        <p className="meta">Last run: {formatDate(agentStatus?.lastRunAt)}</p>
-        <p className="meta">Next run: {formatDate(agentStatus?.nextRunAt)}</p>
-        <p className="meta">Last post ID: {agentStatus?.lastPostId || "-"}</p>
-        {agentStatus?.lastError && <p className="errorText">{agentStatus.lastError}</p>}
-      </section>
 
       <section className="metrics">
         <article className="metric">
