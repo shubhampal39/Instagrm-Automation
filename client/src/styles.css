@@ -1,16 +1,16 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap");
 
 :root {
-  --bg0: #08101f;
-  --bg1: #0f1f37;
-  --ink: #f3f7ff;
-  --muted: #a5b9d5;
-  --line: rgba(125, 169, 230, 0.22);
-  --card: rgba(18, 32, 56, 0.52);
-  --good: #39d98a;
-  --warn: #f6b73c;
-  --bad: #ff6b81;
-  --brand: #2ac3ff;
+  --bg0: #062019;
+  --bg1: #0a1f29;
+  --ink: #e9fff6;
+  --muted: #9fcfbf;
+  --line: rgba(146, 255, 213, 0.28);
+  --card: rgba(18, 42, 40, 0.5);
+  --good: #63f2ba;
+  --warn: #ffcc66;
+  --bad: #ff7f9f;
+  --brand: #5fffb3;
 }
 
 * {
@@ -20,9 +20,9 @@
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 12% 10%, rgba(36, 118, 255, 0.32), transparent 30%),
-    radial-gradient(circle at 85% 0%, rgba(40, 219, 255, 0.22), transparent 24%),
-    linear-gradient(140deg, #071225 0%, #09172d 45%, #06111f 100%);
+    radial-gradient(circle at 14% 16%, rgba(95, 255, 179, 0.25), transparent 32%),
+    radial-gradient(circle at 88% 82%, rgba(69, 211, 255, 0.2), transparent 28%),
+    linear-gradient(140deg, #062019 0%, #0a1f29 48%, #091520 100%);
   color: var(--ink);
   font-family: "Plus Jakarta Sans", sans-serif;
 }
@@ -39,8 +39,8 @@ body {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(600px 300px at 10% -10%, rgba(42, 195, 255, 0.18), transparent 70%),
-    radial-gradient(500px 240px at 90% 0%, rgba(96, 116, 255, 0.2), transparent 70%);
+    radial-gradient(640px 320px at 8% -8%, rgba(95, 255, 179, 0.13), transparent 70%),
+    radial-gradient(520px 250px at 92% 0%, rgba(69, 211, 255, 0.13), transparent 72%);
 }
 
 .hero {
@@ -141,7 +141,7 @@ h1 {
 .panel {
   padding: 0.95rem;
   animation: rise 280ms ease-out;
-  box-shadow: 0 16px 44px rgba(4, 10, 22, 0.42);
+  box-shadow: 0 18px 42px rgba(2, 10, 12, 0.34);
 }
 
 @keyframes rise {
@@ -168,11 +168,11 @@ label {
 }
 
 .dropZone {
-  border: 1px dashed rgba(144, 188, 255, 0.4);
+  border: 1px dashed rgba(146, 255, 213, 0.4);
   border-radius: 14px;
   padding: 0.75rem;
   text-align: center;
-  background: rgba(25, 46, 79, 0.32);
+  background: rgba(20, 44, 42, 0.34);
 }
 
 .dropZone p {
@@ -193,8 +193,8 @@ select,
 textarea,
 button {
   border-radius: 10px;
-  border: 1px solid rgba(123, 160, 217, 0.35);
-  background: rgba(13, 27, 52, 0.58);
+  border: 1px solid rgba(146, 255, 213, 0.34);
+  background: rgba(8, 30, 34, 0.52);
   color: var(--ink);
   font: inherit;
   padding: 0.58rem 0.66rem;
@@ -211,7 +211,7 @@ button {
 
 button:hover {
   transform: translateY(-1px);
-  background: rgba(34, 66, 116, 0.62);
+  background: rgba(20, 66, 72, 0.62);
 }
 
 button:disabled {
@@ -236,10 +236,10 @@ button:disabled {
 }
 
 .chip {
-  border: 1px solid #385a89;
+  border: 1px solid rgba(146, 255, 213, 0.32);
   border-radius: 999px;
   padding: 0.2rem 0.5rem;
-  background: rgba(35, 64, 112, 0.35);
+  background: rgba(33, 76, 65, 0.32);
 }
 
 .quickButtons,
@@ -262,8 +262,8 @@ button:disabled {
 }
 
 .diffCard {
-  border: 1px solid #395578;
-  background: rgba(14, 29, 55, 0.85);
+  border: 1px solid rgba(146, 255, 213, 0.28);
+  background: rgba(11, 33, 34, 0.75);
   border-radius: 12px;
   padding: 0.65rem;
 }
@@ -290,7 +290,7 @@ button:disabled {
 
 .tabs button.active {
   border-color: var(--brand);
-  background: rgba(42, 195, 255, 0.2);
+  background: rgba(95, 255, 179, 0.22);
 }
 
 .postList,
@@ -304,10 +304,10 @@ button:disabled {
   display: grid;
   grid-template-columns: 120px 1fr;
   gap: 0.65rem;
-  border: 1px solid rgba(116, 160, 226, 0.3);
+  border: 1px solid rgba(146, 255, 213, 0.28);
   border-radius: 12px;
   padding: 0.58rem;
-  background: rgba(10, 21, 40, 0.58);
+  background: rgba(8, 27, 30, 0.55);
 }
 
 .postCard img,
@@ -351,8 +351,8 @@ button:disabled {
 }
 
 .badge.type {
-  color: #7ad5ff;
-  border-color: rgba(122, 213, 255, 0.5);
+  color: #8fffd1;
+  border-color: rgba(143, 255, 209, 0.5);
 }
 
 .badge.good {
@@ -383,7 +383,7 @@ button:disabled {
 }
 
 .timeline span {
-  border: 1px solid #3b4f74;
+  border: 1px solid rgba(146, 255, 213, 0.28);
   border-radius: 999px;
   padding: 0.15rem 0.45rem;
 }
@@ -404,10 +404,10 @@ button:disabled {
 }
 
 .activityItem {
-  border: 1px solid rgba(116, 160, 226, 0.3);
+  border: 1px solid rgba(116, 231, 255, 0.3);
   border-radius: 11px;
   padding: 0.6rem;
-  background: rgba(12, 24, 45, 0.54);
+  background: rgba(8, 25, 30, 0.56);
 }
 
 .channelPanel {
@@ -425,12 +425,12 @@ button:disabled {
   text-align: left;
   display: grid;
   gap: 0.18rem;
-  background: rgba(15, 30, 56, 0.46);
+  background: rgba(14, 36, 38, 0.44);
 }
 
 .channelCard.active {
-  border-color: rgba(42, 195, 255, 0.78);
-  box-shadow: 0 0 0 1px rgba(42, 195, 255, 0.24) inset;
+  border-color: rgba(95, 255, 179, 0.78);
+  box-shadow: 0 0 0 1px rgba(95, 255, 179, 0.24) inset;
 }
 
 .channelName {
