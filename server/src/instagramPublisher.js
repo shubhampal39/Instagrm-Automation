@@ -128,7 +128,7 @@ function pickRandomComment(pool) {
   return pool[index];
 }
 
-async function autoCommentOnMedia(mediaId, message) {
+async function autoCommentOnMedia(mediaId, message, accessToken = config.instagramAccessToken) {
   if (!mediaId || !message) return { attempted: false, posted: false, commentId: "" };
 
   try {
@@ -138,7 +138,7 @@ async function autoCommentOnMedia(mediaId, message) {
       {
         params: {
           message,
-          access_token: config.instagramAccessToken
+          access_token: accessToken
         },
         timeout: 20000
       }
@@ -213,10 +213,13 @@ export async function publishToInstagram(post) {
     };
   }
 
-  const accessToken = String(post?.channelAccessToken || config.instagramAccessToken || "").trim();
+  const tokenCandidates = [
+    String(post?.channelAccessToken || "").trim(),
+    String(config.instagramAccessToken || "").trim()
+  ].filter(Boolean);
   const accountIdOverride = String(post?.channelAccountId || "").trim();
 
-  if (!accessToken || (!accountIdOverride && !hasInstagramCredentials())) {
+  if (!tokenCandidates.length || (!accountIdOverride && !hasInstagramCredentials())) {
     throw new Error(
       "Live mode requires INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_ACCOUNT_ID environment variables."
     );
@@ -230,79 +233,87 @@ export async function publishToInstagram(post) {
     );
   }
 
-  const targetInstagramAccountId = await getTargetInstagramAccountId(accessToken, accountIdOverride);
   const postType = String(post.postType || "FEED").toUpperCase();
   const isStory = postType === "STORY";
   const isReel = postType === "REEL";
-  const mediaParams = {
-    access_token: accessToken
-  };
+  const uniqueTokens = [...new Set(tokenCandidates)];
+  let lastError = null;
 
-  if (isReel) {
-    mediaParams.media_type = "REELS";
-    mediaParams.video_url = imageUrl;
-    mediaParams.caption = post.optimizedCaption || post.caption;
-  } else if (isStory) {
-    mediaParams.media_type = "STORIES";
-    mediaParams.image_url = imageUrl;
-  } else {
-    mediaParams.image_url = imageUrl;
-    mediaParams.caption = post.optimizedCaption || post.caption;
-  }
+  for (let i = 0; i < uniqueTokens.length; i += 1) {
+    const accessToken = uniqueTokens[i];
+    try {
+      const targetInstagramAccountId = await getTargetInstagramAccountId(accessToken, accountIdOverride);
+      const mediaParams = { access_token: accessToken };
 
-  let container;
-  try {
-    container = await axios.post(
-      `https://graph.facebook.com/v20.0/${targetInstagramAccountId}/media`,
-      null,
-      {
-        params: mediaParams,
-        timeout: 20000
+      if (isReel) {
+        mediaParams.media_type = "REELS";
+        mediaParams.video_url = imageUrl;
+        mediaParams.caption = post.optimizedCaption || post.caption;
+      } else if (isStory) {
+        mediaParams.media_type = "STORIES";
+        mediaParams.image_url = imageUrl;
+      } else {
+        mediaParams.image_url = imageUrl;
+        mediaParams.caption = post.optimizedCaption || post.caption;
       }
-    );
-  } catch (error) {
-    withMetaErrorDetails(error, "Meta /media failed");
-  }
 
-  const creationId = container?.data?.id;
+      const container = await axios.post(
+        `https://graph.facebook.com/v20.0/${targetInstagramAccountId}/media`,
+        null,
+        {
+          params: mediaParams,
+          timeout: 20000
+        }
+      );
 
-  if (!creationId) {
-    throw new Error("Could not create Instagram media container");
-  }
-
-  await waitForContainerReady(creationId, accessToken);
-
-  let published;
-  try {
-    published = await axios.post(
-      `https://graph.facebook.com/v20.0/${targetInstagramAccountId}/media_publish`,
-      null,
-      {
-        params: {
-          creation_id: creationId,
-          access_token: accessToken
-        },
-        timeout: 20000
+      const creationId = container?.data?.id;
+      if (!creationId) {
+        throw new Error("Could not create Instagram media container");
       }
-    );
-  } catch (error) {
-    withMetaErrorDetails(error, "Meta /media_publish failed");
+
+      await waitForContainerReady(creationId, accessToken);
+
+      const published = await axios.post(
+        `https://graph.facebook.com/v20.0/${targetInstagramAccountId}/media_publish`,
+        null,
+        {
+          params: {
+            creation_id: creationId,
+            access_token: accessToken
+          },
+          timeout: 20000
+        }
+      );
+
+      const publishedMediaId = published?.data?.id || "";
+      const commentPool = normalizeCommentPool(post.commentPool);
+      const commentMessage = pickRandomComment(commentPool);
+
+      const autoComment =
+        post.autoCommentEnabled && postType !== "STORY"
+          ? await autoCommentOnMedia(publishedMediaId, commentMessage, accessToken)
+          : { attempted: false, posted: false, commentId: "", message: "" };
+
+      return {
+        success: true,
+        mode: "live",
+        remotePostId: publishedMediaId,
+        autoComment,
+        message: "Post published to Instagram"
+      };
+    } catch (error) {
+      const metaError = error?.response?.data?.error;
+      const isInvalidSession = metaError?.code === 190 && metaError?.error_subcode === 467;
+      lastError = error;
+      if (isInvalidSession && i < uniqueTokens.length - 1) {
+        continue;
+      }
+      if (metaError) {
+        withMetaErrorDetails(error, "Meta /media failed");
+      }
+      throw error;
+    }
   }
 
-  const publishedMediaId = published?.data?.id || "";
-  const commentPool = normalizeCommentPool(post.commentPool);
-  const commentMessage = pickRandomComment(commentPool);
-
-  const autoComment =
-    post.autoCommentEnabled && postType !== "STORY"
-      ? await autoCommentOnMedia(publishedMediaId, commentMessage)
-      : { attempted: false, posted: false, commentId: "", message: "" };
-
-  return {
-    success: true,
-    mode: "live",
-    remotePostId: publishedMediaId,
-    autoComment,
-    message: "Post published to Instagram"
-  };
+  throw lastError || new Error("Instagram publish failed");
 }
