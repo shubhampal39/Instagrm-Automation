@@ -411,17 +411,6 @@ export default function App() {
             </label>
 
             <label>
-              Publish Channel
-              <select value={selectedChannelId} onChange={(event) => setSelectedChannelId(event.target.value)}>
-                {channels.map((channel) => (
-                  <option key={channel.id} value={channel.id}>
-                    {channel.name} ({channel.handle})
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
               Caption
               <textarea
                 rows={5}
